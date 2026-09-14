@@ -1,5 +1,3 @@
-```markdown
-
 # Техническое задание
 
 ## 1. Объем работ
@@ -100,3 +98,4 @@
 @app.post("/api/works")
 async def create_work(payload: WorkCreate, user=Depends(get_current_user)):
     return await assignment_client.create_work(payload, user)
+```
