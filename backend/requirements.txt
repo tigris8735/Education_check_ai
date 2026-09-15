@@ -1,0 +1,31 @@
+# Web
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12
+
+# DB
+sqlalchemy[asyncio]==2.0.35
+asyncpg==0.30.0
+greenlet==3.1.1
+
+# Settings
+pydantic==2.9.2
+pydantic-settings==2.5.2
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==4.2.0
+
+# Files (S3)
+aioboto3==13.2.0
+
+# AI
+openai==1.51.0
+httpx==0.27.2
+
+# Background
+arq==0.26.1
+
+# Utils
+python-dotenv==1.0.1
