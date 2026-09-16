@@ -29,3 +29,4 @@ arq==0.26.1
 
 # Utils
 python-dotenv==1.0.1
+email-validator==2.2.0
