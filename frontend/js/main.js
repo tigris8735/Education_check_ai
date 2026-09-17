@@ -1,0 +1,75 @@
+import { route, setNotFound, startRouter, navigate } from './core/router.js';
+import { restoreSession } from './core/auth.js';
+import { store } from './core/store.js';
+import { renderLogin } from './pages/login.js';
+import { renderRegister } from './pages/register.js';
+import { renderTeacherDashboard } from './pages/teacher-dashboard.js';
+import { renderStudentDashboard } from './pages/student-dashboard.js';
+import { renderGroups } from './pages/groups.js';
+import { renderGroupDetail } from './pages/group-detail.js';
+import { renderTasks } from './pages/tasks.js';
+import { renderTaskDetail } from './pages/task-detail.js';
+import { renderSubmissions } from './pages/submissions.js';
+import { renderSubmissionDetail } from './pages/submission-detail.js';
+import { renderLayout } from './core/layout.js';
+import { html, mount } from './ui/render.js';
+
+/* ---------- Routes ---------- */
+
+route('/login', () => renderLogin());
+route('/register', () => renderRegister());
+
+route('/', () => {
+  if (!store.state.user) return navigate('/login');
+  return store.state.user.role === 'TEACHER'
+    ? renderTeacherDashboard()
+    : renderStudentDashboard();
+});
+
+route('/groups', () => {
+  if (store.state.user?.role !== 'TEACHER') return navigate('/');
+  return renderGroups();
+});
+route('/groups/:id', ({ id }) => {
+  if (store.state.user?.role !== 'TEACHER') return navigate('/');
+  return renderGroupDetail({ id });
+});
+
+route('/tasks', () => {
+  if (!store.state.user) return navigate('/login');
+  return renderTasks();
+});
+route('/tasks/:id', ({ id }) => {
+  if (!store.state.user) return navigate('/login');
+  return renderTaskDetail({ id });
+});
+
+route('/submissions', () => {
+  if (!store.state.user) return navigate('/login');
+  return renderSubmissions();
+});
+route('/submissions/:id', ({ id }) => {
+  if (!store.state.user) return navigate('/login');
+  return renderSubmissionDetail({ id });
+});
+
+setNotFound(() => {
+  renderLayout(html`
+    <div class="empty">
+      <div class="empty__title">Страница не найдена</div>
+      <p>Проверьте адрес или вернитесь <a class="text-accent" href="#/">на главную</a>.</p>
+    </div>
+  `);
+});
+
+/* ---------- Bootstrap ---------- */
+
+window.addEventListener('educheck:logout', () => {
+  store.set({ user: null });
+  navigate('/login');
+});
+
+(async function bootstrap() {
+  await restoreSession();
+  startRouter();
+})();
