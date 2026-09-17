@@ -35,12 +35,12 @@ async def init_db() -> None:
     По мере добавления сервисов — расширяем список импортов.
     """
     # --- импорты моделей (по мере разработки) ---
-    # from app.services.user_service import models as _user_models
-    # from app.services.group_service import models as _group_models
-    # from app.services.task_service import models as _task_models
-    # from app.services.submission_service import models as _submission_models
-    # from app.services.file_service import models as _file_models
-    # from app.services.ai_service import models as _ai_models
+    from app.services.user_service import models as _user_models
+    from app.services.group_service import models as _group_models
+    from app.services.task_service import models as _task_models
+    from app.services.submission_service import models as _submission_models
+    from app.services.file_service import models as _file_models
+    from app.services.ai_service import models as _ai_models
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
