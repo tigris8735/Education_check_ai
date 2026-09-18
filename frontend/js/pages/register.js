@@ -52,34 +52,47 @@ export function renderRegister() {
   e.preventDefault();
   const payload = readForm(form);
   
-  // Разбиваем full_name на first_name и last_name
-  const fullName = payload.full_name || '';
-  const nameParts = fullName.trim().split(/\s+/);
-  const firstName = nameParts[0] || '';
-  const lastName = nameParts.slice(1).join(' ') || '';
+  // Разбиваем full_name
+  const fullName = (payload.full_name || '').trim();
+  const nameParts = fullName.split(/\s+/).filter(Boolean);
+  const firstName = nameParts[0] || 'User';
+  const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : 'Test';
   
   const registerData = {
     first_name: firstName,
     last_name: lastName,
-    email: payload.email,
-    password: payload.password,
-    role: payload.role,
+    email: (payload.email || '').trim(),
+    password: payload.password || '',
+    role: String(payload.role || '').toLowerCase(),  // ← Гарантированно нижний регистр
   };
+  
+  console.log('Отправляю:', registerData);
   
   btn.disabled = true;
   btn.textContent = 'Создание…';
+  
   try {
     await register(registerData);
-    toast('Аккаунт создан. Выполняется вход…', 'success');
-    await login(payload.email, payload.password).catch(() => {});
+    toast('Аккаунт создан!', 'success');
+    await login(registerData.email, registerData.password).catch(() => {});
     navigate('/');
   } catch (err) {
-    toast(err.message || 'Ошибка регистрации', 'error');
+    let errorMsg = 'Ошибка регистрации';
+    if (err.response?.data?.detail) {
+      if (Array.isArray(err.response.data.detail)) {
+        errorMsg = err.response.data.detail.map(d => d.msg).join(', ');
+      } else {
+        errorMsg = err.response.data.detail;
+      }
+    } else if (err.message) {
+      errorMsg = err.message;
+    }
+    toast(errorMsg, 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Создать аккаунт';
   }
-});
+  });
 }
 
 // локальный импорт, чтобы не плодить зависимости
