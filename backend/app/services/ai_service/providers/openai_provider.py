@@ -43,7 +43,7 @@ class OpenAIProvider(AIProvider):
 
         content = response.choices[0].message.content or "{}"
         data = json.loads(content)
-        score = int(data.get("score", 0))
-        score = max(0, min(100, score))
+        verdict = str(data.get("verdict","incorrect")).strip().lower()
+        score = 100 if verdict == "correct" else 0
         feedback = str(data.get("feedback", "")).strip() or "—"
         return AiResult(score=score, feedback=feedback)

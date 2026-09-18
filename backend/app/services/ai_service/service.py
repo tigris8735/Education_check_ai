@@ -104,7 +104,6 @@ async def enqueue_check(
         )
 
     # положим задачу в очередь
-    redis = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
     try:
         redis: ArqRedis = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
     except Exception as e:  # noqa: BLE001
