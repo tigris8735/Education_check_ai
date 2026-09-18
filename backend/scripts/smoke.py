@@ -4,7 +4,6 @@ Smoke-тест: прогоняет весь путь по API.
 Требует запущенный сервер на http://127.0.0.1:8000
 """
 import sys
-import time
 import uuid
 
 import httpx
@@ -83,9 +82,9 @@ def main() -> int:
     sub_id = r.json()["id"]
     print(f"✔ Сдача создана: id={sub_id}")
 
-    # 6. Синхронная AI-проверка (без Redis)
-    r = client.post(f"/ai/check/{sub_id}?sync=true", headers=s_h, json={"force": True})
-    assert r.status_code in (200, 202), r.text
+    # 6. AI-проверка (синхронная)
+    r = client.post(f"/ai/check/{sub_id}", headers=s_h, json={"force": True})
+    assert r.status_code == 200, r.text
     ai = r.json()
     assert ai["status"] == "done", ai
     print(f"✔ AI проверка: score={ai['score']}")
@@ -113,5 +112,5 @@ if __name__ == "__main__":
     try:
         sys.exit(main())
     except AssertionError as e:
-        print(f"\n FAIL: {e}")
+        print(f"\n❌ FAIL: {e}")
         sys.exit(1)

@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -15,23 +15,15 @@ router = APIRouter()
 @router.post(
     "/check/{submission_id}",
     response_model=AiCheckOut,
-    status_code=status.HTTP_202_ACCEPTED,
+    status_code=status.HTTP_200_OK,
 )
-async def enqueue_check(
+async def run_check(
     submission_id: int,
     payload: AiCheckRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    sync: bool = Query(
-        False,
-        description="Если true — выполнить проверку синхронно (для отладки без Redis)",
-    ),
 ):
-    if sync:
-        return await ai_service.run_check_sync(
-            db, submission_id, current_user, force=payload.force
-        )
-    return await ai_service.enqueue_check(
+    return await ai_service.run_check(
         db, submission_id, current_user, force=payload.force
     )
 

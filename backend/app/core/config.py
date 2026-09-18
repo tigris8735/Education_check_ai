@@ -1,5 +1,4 @@
 from functools import lru_cache
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
@@ -45,9 +44,6 @@ class Settings(BaseSettings):
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
 
-    # Redis
-    REDIS_URL: str = ""
-
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
@@ -77,7 +73,6 @@ class Settings(BaseSettings):
             query.pop(key, None)
 
         # Если был sslmode=require, ставим ssl=require
-        # (parse_qs уже удалил sslmode, поэтому проверяем исходную строку)
         if "sslmode=require" in v and "ssl" not in query:
             query["ssl"] = ["require"]
 
@@ -85,7 +80,6 @@ class Settings(BaseSettings):
         new_query = urlencode(query, doseq=True)
         new_parsed = parsed._replace(query=new_query)
         return urlunparse(new_parsed)
-        
 
 
 @lru_cache

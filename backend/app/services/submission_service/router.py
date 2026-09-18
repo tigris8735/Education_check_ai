@@ -16,6 +16,8 @@ from app.services.submission_service.schemas import (
 )
 from app.services.user_service.models import User
 from app.shared.permissions import get_current_user, require_teacher
+from app.services.ai_service import service as ai_service
+from app.services.ai_service.schemas import AiCheckOut, AiCheckRequest
 
 router = APIRouter()
 
@@ -36,7 +38,6 @@ async def create_submission(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     sub = await sub_service.create_submission(db, payload, current_user)
-    # перечитаем с комментами (пустыми) и файлами (пустыми)
     fresh = await sub_service.get_submission(db, sub.id, current_user)
     return await sub_service.build_detail(db, fresh)
 
@@ -103,3 +104,20 @@ async def delete_comment(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     await sub_service.delete_comment(db, comment_id, current_user)
+
+
+@router.post(
+    "/{submission_id}/check",
+    response_model=AiCheckOut,
+    status_code=status.HTTP_200_OK,
+)
+async def trigger_ai_check(
+    submission_id: int,
+    payload: AiCheckRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Запустить AI-проверку для сдачи (альтернативный endpoint к /ai/check/{id})"""
+    return await ai_service.run_check(
+        db, submission_id, current_user, force=payload.force
+    )

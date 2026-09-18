@@ -7,7 +7,7 @@ from app.api.v1 import api_router
 from app.core.config import settings
 from app.core.database import init_db
 from app.core.exceptions import register_exception_handlers
-from app.core.loggin import get_logger, setup_logging
+from app.core.logging import get_logger, setup_logging
 from app.core.middleware import add_middlewares
 
 setup_logging(settings.DEBUG)
