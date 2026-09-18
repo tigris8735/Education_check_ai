@@ -4,6 +4,7 @@ __pycache__/
 venv/
 .env
 .env.local
+.env.example
 *.log
 .pytest_cache/
 .mypy_cache/
