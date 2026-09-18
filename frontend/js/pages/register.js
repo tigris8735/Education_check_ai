@@ -31,8 +31,8 @@ export function renderRegister() {
           <div class="field">
             <label class="field__label" for="role">Роль</label>
             <select class="select" id="role" name="role" required>
-              <option value="STUDENT">Студент</option>
-              <option value="TEACHER">Преподаватель</option>
+              <option value="student">Студент</option>
+              <option value="teacher">Преподаватель</option>
             </select>
           </div>
           <button class="btn btn--primary btn--lg btn--block" type="submit" id="submit-btn">Создать аккаунт</button>
