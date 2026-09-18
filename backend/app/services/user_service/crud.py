@@ -1,7 +1,6 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-
-from user_service.models import User
+from app.services.user_service.models import User
 
 
 async def get_by_id(db: AsyncSession, user_id: int) -> User | None:

@@ -3,8 +3,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ConflictError, NotFoundError
 from app.core.security import hash_password
 from user_service import crud
-from user_service.models import User
-from user_service.schemas import UserCreate, UserUpdate
+from app.services.user_service.models import User
+from app.services.user_service.schemas import UserCreate, UserUpdate
 from app.shared.enums import Role
 
 async def register_user(db: AsyncSession, data: UserCreate) -> User:
