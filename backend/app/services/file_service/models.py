@@ -1,8 +1,8 @@
-from sqlalchemy import BigInteger, ForeignKey, String, UniqueConstraint
+from sqlalchemy import BigInteger, Enum as SAEnum, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.shared.base_model import Base, TimestampMixin
-from app.shared.enums import FileStatus  # добавим в enums
+from app.shared.enums import FileStatus
 
 
 class FileMeta(Base, TimestampMixin):
@@ -17,7 +17,11 @@ class FileMeta(Base, TimestampMixin):
     uploaded_by_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # привязка к решению (заполним на этапе 7), пока NULL
     submission_id: Mapped[int | None] = mapped_column(
         ForeignKey("submissions.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    status: Mapped[FileStatus] = mapped_column(
+        SAEnum(FileStatus, name="file_status", native_enum=False, length=20),
+        nullable=False,
+        default=FileStatus.PENDING,
     )

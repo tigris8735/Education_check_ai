@@ -19,3 +19,7 @@ class AiCheckStatus(str, Enum):
     RUNNING = "running"
     DONE = "done"
     ERROR = "error"
+
+class FileStatus(str, Enum):
+    PENDING = "pending"    # presigned URL выдан, но файл ещё не загружен в S3
+    UPLOADED = "uploaded"  # файл подтверждён, объект в S3 существует
