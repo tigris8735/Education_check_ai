@@ -48,3 +48,7 @@ class SubmissionOut(BaseModel):
 class SubmissionDetail(SubmissionOut):
     files: list[FileOut] = []
     comments: list[CommentOut] = []
+
+class FinalScoreIn(BaseModel):
+    final_score: int = Field(..., ge=0, le=100)
+    teacher_feedback: str | None = None    

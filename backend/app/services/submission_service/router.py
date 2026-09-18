@@ -121,3 +121,21 @@ async def trigger_ai_check(
     return await ai_service.run_check(
         db, submission_id, current_user, force=payload.force
     )
+
+from app.services.submission_service.schemas import FinalScoreIn
+
+@router.post("/{submission_id}/final-score", response_model=SubmissionOut)
+async def save_final_score(
+    submission_id: int,
+    payload: FinalScoreIn,
+    current_user: Annotated[User, Depends(require_teacher)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Преподаватель сохраняет итоговую оценку после AI-проверки."""
+    sub = await sub_service.get_submission(db, submission_id, current_user)
+    sub.final_score = payload.final_score
+    sub.teacher_feedback = payload.teacher_feedback
+    sub.status = "reviewed"
+    await db.commit()
+    await db.refresh(sub)
+    return sub

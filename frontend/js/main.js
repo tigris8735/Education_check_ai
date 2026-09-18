@@ -1,6 +1,7 @@
 import { route, setNotFound, startRouter, navigate } from './core/router.js';
 import { restoreSession } from './core/auth.js';
 import { store } from './core/store.js';
+
 import { renderLogin } from './pages/login.js';
 import { renderRegister } from './pages/register.js';
 import { renderTeacherDashboard } from './pages/teacher-dashboard.js';
@@ -12,10 +13,9 @@ import { renderTaskDetail } from './pages/task-detail.js';
 import { renderSubmissions } from './pages/submissions.js';
 import { renderSubmissionDetail } from './pages/submission-detail.js';
 import { renderLayout } from './core/layout.js';
-import { html, mount } from './ui/render.js';
+import { html } from './ui/render.js';
 
 /* ---------- Routes ---------- */
-
 route('/login', () => renderLogin());
 route('/register', () => renderRegister());
 
@@ -40,6 +40,7 @@ route('/tasks', () => {
   if (!store.state.user) return navigate('/login');
   return renderTasks();
 });
+
 route('/tasks/:id', ({ id }) => {
   if (!store.state.user) return navigate('/login');
   return renderTaskDetail({ id });
@@ -47,11 +48,9 @@ route('/tasks/:id', ({ id }) => {
 
 route('/submissions', () => {
   if (!store.state.user) return navigate('/login');
-  // Преподавателю нельзя сюда — он смотрит работы через задания
   if (store.state.user.role === 'teacher') return navigate('/tasks');
   return renderSubmissions();
 });
-
 
 route('/submissions/:id', ({ id }) => {
   if (!store.state.user) return navigate('/login');
@@ -68,7 +67,6 @@ setNotFound(() => {
 });
 
 /* ---------- Bootstrap ---------- */
-
 window.addEventListener('educheck:logout', () => {
   store.set({ user: null });
   navigate('/login');

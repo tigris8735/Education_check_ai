@@ -2,6 +2,7 @@ import { api } from '../api/index.js';
 import { renderLayout } from '../core/layout.js';
 import { html, formatDateTime } from '../ui/render.js';
 import { toast } from '../ui/toast.js';
+import { store } from '../core/store.js';
 
 export async function renderSubmissions() {
   renderLayout(`<div class="skeleton" style="height:80px"></div>`);
@@ -10,8 +11,8 @@ export async function renderSubmissions() {
   const content = html`
     <div class="page-header">
       <div class="page-header__title">
-        <h1>Работы</h1>
-        <p class="page-header__subtitle">Все сдачи и их статусы</p>
+        <h1>Мои работы</h1>
+        <p class="page-header__subtitle">Все ваши сдачи и их статусы</p>
       </div>
     </div>
 
@@ -23,7 +24,6 @@ export async function renderSubmissions() {
             <thead>
               <tr>
                 <th>ID</th>
-                <th>Студент</th>
                 <th>Статус</th>
                 <th>AI-оценка</th>
                 <th>Итог</th>
@@ -33,8 +33,7 @@ export async function renderSubmissions() {
             <tbody>
               ${items.map(s => `
                 <tr onclick="location.hash='#/submissions/${s.id}'" style="cursor:pointer">
-                  <td class="text-mono">${s.id.slice(0, 8)}</td>
-                  <td>${(s.student_id || '—').slice(0, 8)}</td>
+                  <td class="text-mono">${String(s.id).slice(0, 8)}</td>
                   <td><span class="badge badge--${statusClass(s.status)}">${statusLabel(s.status)}</span></td>
                   <td>${s.ai_score ?? '—'}</td>
                   <td><strong>${s.final_score ?? '—'}</strong></td>
@@ -43,9 +42,9 @@ export async function renderSubmissions() {
               `).join('')}
             </tbody>
           </table>
-        </div>
-      `}
+        </div>`}
   `;
+
   renderLayout(content);
 }
 

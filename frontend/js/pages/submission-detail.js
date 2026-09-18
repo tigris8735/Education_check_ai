@@ -8,13 +8,13 @@ export async function renderSubmissionDetail({ id }) {
   renderLayout(`<div class="skeleton" style="height:120px"></div>`);
   try {
     const s = await api.submissions.get(id);
-    const isTeacher = store.state.user?.role === 'TEACHER';
+    const isTeacher = store.state.user?.role === 'teacher';
 
     const content = html`
       <div class="breadcrumbs">
-        <a href="#/submissions">Работы</a>
+        <a href="#/">Главная</a>
         <span class="breadcrumbs__sep">/</span>
-        <span>Работа #${s.id.slice(0, 8)}</span>
+        <span>Работа #${String(s.id).slice(0, 8)}</span>
       </div>
 
       <div class="page-header">
@@ -24,14 +24,14 @@ export async function renderSubmissionDetail({ id }) {
         </div>
         <div class="page-header__actions">
           <span class="badge badge--${statusClass(s.status)}">${statusLabel(s.status)}</span>
-          ${isTeacher ? `<button class="btn btn--secondary" id="run-ai">Запустить AI-проверку</button>` : ''}
+          ${isTeacher ? `<button class="btn btn--secondary" id="run-ai">🤖 Запустить AI-проверку</button>` : ''}
         </div>
       </div>
 
       <div class="ai-review" style="margin-bottom: var(--space-6)">
         <div class="ai-review__panel">
           <h4>Текст работы</h4>
-          <div class="submission-text">${escape(s.student_comment || '—')}</div>
+          <div class="submission-text" style="white-space:pre-wrap">${escape(s.student_comment || '—')}</div>
         </div>
 
         <div class="ai-review__panel ai-review__panel--ai">
@@ -44,14 +44,32 @@ export async function renderSubmissionDetail({ id }) {
 
       ${isTeacher ? renderTeacherReview(s) : ''}
     `;
+
     renderLayout(content);
 
     document.getElementById('run-ai')?.addEventListener('click', async () => {
+      const btn = document.getElementById('run-ai');
+      btn.disabled = true;
+      btn.textContent = '⏳ Проверка выполняется...';
       try {
-        await api.submissions.triggerAI(id);
-        toast('AI-проверка запущена', 'info');
-        setTimeout(() => renderSubmissionDetail({ id }), 2500);
+        await api.submissions.triggerAI(id, { force: true });
+        toast('AI-проверка запущена, ожидайте...', 'info');
+
+        // Поллим статус пока не завершится
+        let attempts = 0;
+        const poll = setInterval(async () => {
+          attempts++;
+          try {
+            const fresh = await api.submissions.get(id);
+            if (fresh.ai_status === 'done' || fresh.ai_status === 'error' || attempts > 30) {
+              clearInterval(poll);
+              renderSubmissionDetail({ id });
+            }
+          } catch { clearInterval(poll); }
+        }, 2000);
       } catch (err) {
+        btn.disabled = false;
+        btn.textContent = '🤖 Запустить AI-проверку';
         toast(err.message, 'error');
       }
     });
@@ -61,7 +79,7 @@ export async function renderSubmissionDetail({ id }) {
       const score = Number(e.target.elements.score.value);
       const feedback = e.target.elements.feedback.value;
       try {
-        await api.submissions.review(id, { final_score: score, teacher_feedback: feedback });
+        await api.submissions.updateFinalScore(id, { final_score: score, teacher_feedback: feedback });
         toast('Итоговая оценка сохранена', 'success');
         renderSubmissionDetail({ id });
       } catch (err) {
@@ -96,24 +114,25 @@ function renderTeacherReview(s) {
 }
 
 function statusClass(s) {
-  return ({ DRAFT: 'draft', SUBMITTED: 'submitted', CHECKING: 'checking', CHECKED: 'checked', REVIEWED: 'reviewed', FAILED: 'failed' })[s] || 'draft';
+  return ({ draft: 'draft', submitted: 'submitted', checking: 'checking', checked: 'checked', failed: 'failed' })[s] || 'draft';
 }
+
 function statusLabel(s) {
-  return ({ DRAFT: 'Черновик', SUBMITTED: 'Сдано', CHECKING: 'AI проверяет', CHECKED: 'AI проверено', REVIEWED: 'Проверено', FAILED: 'Ошибка AI' })[s] || s;
+  return ({ draft: 'Черновик', submitted: 'Сдано', checking: 'AI проверяет', checked: 'AI проверено', failed: 'Ошибка AI' })[s] || s;
 }
+
 function scoreClass(v) {
   if (v >= 75) return 'good';
   if (v >= 50) return 'warn';
   return 'bad';
 }
 
-/** Минимальный безопасный рендер markdown: экранируем HTML, потом применяем простые замены */
 function renderSafeMarkdown(text) {
   let safe = escape(text);
   safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
   safe = safe.replace(/^### (.+)$/gm, '<h4>$1</h4>');
   safe = safe.replace(/^## (.+)$/gm, '<h3>$1</h3>');
-  safe = safe.replace(/^\- (.+)$/gm, '<li>$1</li>');
+  safe = safe.replace(/^- (.+)$/gm, '<li>$1</li>');
   safe = safe.replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>');
   safe = safe.replace(/\n{2,}/g, '</p><p>');
   return `<p>${safe}</p>`;

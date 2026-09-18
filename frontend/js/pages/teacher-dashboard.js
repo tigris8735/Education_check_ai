@@ -1,114 +1,50 @@
-import { api } from '../api/index.js';
-import { renderLayout } from '../core/layout.js';
-import { html, escape, formatDate, relativeDeadline } from '../ui/render.js';
-import { toast } from '../ui/toast.js';
+import { request } from './client.js';
 
-export async function renderTeacherDashboard() {
-  renderLayout(`<div class="skeleton" style="height:80px"></div>`);
-  try {
-    const [groups, tasks] = await Promise.all([
-  api.groups.list().catch(() => []),
-  api.tasks.list().catch(() => []),
-]);
-
-    const submissions = [];
-    const pending = [];
-    const reviewed = 0;
-
-    const content = html`
-      <div class="page-header">
-        <div class="page-header__title">
-          <h1>Дашборд преподавателя</h1>
-          <p class="page-header__subtitle">Обзор групп, заданий и работ студентов</p>
-        </div>
-        <div class="page-header__actions">
-          <a class="btn btn--primary" href="#/tasks">+ Новое задание</a>
-        </div>
-      </div>
-
-      <div class="grid grid--4" style="margin-bottom: var(--space-6)">
-        <div class="stat">
-          <div class="stat__label">Группы</div>
-          <div class="stat__value">${groups.length}</div>
-        </div>
-        <div class="stat">
-          <div class="stat__label">Задания</div>
-          <div class="stat__value">${tasks.length}</div>
-        </div>
-        <div class="stat">
-          <div class="stat__label">На проверку</div>
-          <div class="stat__value">${pending.length}</div>
-        </div>
-        <div class="stat">
-          <div class="stat__label">Проверено</div>
-          <div class="stat__value">${reviewed}</div>
-        </div>
-      </div>
-
-      <div class="grid grid--2">
-        <section>
-          <div class="row row--between" style="margin-bottom: var(--space-3)">
-            <h3>Последние задания</h3>
-            <a class="btn btn--ghost btn--sm" href="#/tasks">Все →</a>
-          </div>
-          ${tasks.length === 0 ? emptyBlock('Пока нет заданий') : tasks.slice(0, 5).map(taskCard).join('')}
-        </section>
-
-        <section>
-          <div class="row row--between" style="margin-bottom: var(--space-3)">
-            <h3>Ваши задания</h3>
-            <a class="btn btn--ghost btn--sm" href="#/tasks">Все →</a>
-          </div>
-          ${tasks.length === 0 
-            ? emptyBlock('Нет заданий') 
-            : tasks.slice(0, 5).map(taskCard).join('')}
-        </section>
-      </div>
-    `;
-    renderLayout(content);
-  } catch (err) {
-    toast(err.message || 'Ошибка загрузки', 'error');
-    renderLayout(`<div class="empty"><div class="empty__title">Не удалось загрузить данные</div></div>`);
-  }
-}
-
-function taskCard(t) {
-  return html`
-    <a class="card card--interactive" href="#/tasks/${t.id}" style="display:block; margin-bottom: var(--space-3)">
-      <div class="card__header">
-        <div class="card__title">${escape(t.title)}</div>
-        <span class="badge">${t.deadline ? relativeDeadline(t.deadline) : 'без дедлайна'}</span>
-      </div>
-      <div class="card__meta">Дедлайн: ${formatDate(t.deadline)}</div>
-    </a>
-  `;
-}
-
-function subCard(s) {
-  const badge = statusBadge(s.status);
-  return html`
-    <a class="card card--interactive" href="#/submissions/${s.id}" style="display:block; margin-bottom: var(--space-3)">
-      <div class="card__header">
-        <div class="card__title">Работа #${s.id.slice(0, 8)}</div>
-        ${badge}
-      </div>
-      <div class="card__meta">Студент ID: ${escape(s.student_id || '—')}</div>
-    </a>
-  `;
-}
-
-function statusBadge(status) {
-  const map = {
-    draft: ['draft', 'Черновик'],
-    submitted: ['submitted', 'Сдано'],
-    checking: ['checking', 'AI проверяет'],
-    checked: ['checked', 'AI проверено'],
-    failed: ['failed', 'Ошибка AI'],
-  };
-  const [cls, label] = map[status] || ['draft', status];
-  return `<span class="badge badge--${cls}">${label}</span>`;
-}
-
-function emptyBlock(text) {
-  return `<div class="card" style="text-align:center; color:var(--text-muted); padding: var(--space-8)">${text}</div>`;
-}
+export const api = {
+  auth: {
+    register: (payload) => request('/api/v1/auth/register', { method: 'POST', body: payload, auth: false }),
+    login: (payload) => request('/api/v1/auth/login', { method: 'POST', body: payload, auth: false }),
+    me: () => request('/api/v1/users/me'),
+  },
+  users: {
+    list: () => request('/api/v1/users'),
+    get: (id) => request(`/api/v1/users/${id}`),
+  },
+  groups: {
+    list: () => request('/api/v1/groups'),
+    get: (id) => request(`/api/v1/groups/${id}`),
+    create: (payload) => request('/api/v1/groups', { method: 'POST', body: payload }),
+    update: (id, p) => request(`/api/v1/groups/${id}`, { method: 'PATCH', body: p }),
+    remove: (id) => request(`/api/v1/groups/${id}`, { method: 'DELETE' }),
+    addMember: (id, sid) => request(`/api/v1/groups/${id}/members`, { method: 'POST', body: { student_id: sid } }),
+    removeMember: (id, sid) => request(`/api/v1/groups/${id}/members/${sid}`, { method: 'DELETE' }),
+  },
+  tasks: {
+    list: () => request('/api/v1/tasks'),
+    get: (id) => request(`/api/v1/tasks/${id}`),
+    create: (payload) => request('/api/v1/tasks', { method: 'POST', body: payload }),
+    update: (id, p) => request(`/api/v1/tasks/${id}`, { method: 'PATCH', body: p }),
+    remove: (id) => request(`/api/v1/tasks/${id}`, { method: 'DELETE' }),
+    listByGroup: (gid) => request(`/api/v1/tasks?group_id=${gid}`),
+  },
+  submissions: {
+    list: (params = {}) => {
+      const q = new URLSearchParams(params).toString();
+      return request(`/api/v1/submissions${q ? '?' + q : ''}`);
+    },
+    get: (id) => request(`/api/v1/submissions/${id}`),
+    create: (payload) => request('/api/v1/submissions', { method: 'POST', body: payload }),
+    update: (id, p) => request(`/api/v1/submissions/${id}`, { method: 'PATCH', body: p }),
+    // ⬇️ ИСПРАВЛЕНО: передаём force и используем правильный endpoint
+    triggerAI: (id, opts = {}) => request(`/api/v1/submissions/${id}/check`, {
+      method: 'POST',
+      body: { force: opts.force ?? true }
+    }),
+    listByTask: (tid) => request(`/api/v1/submissions?task_id=${tid}`),
+    // ⬇️ НОВОЕ: для сохранения итоговой оценки препода
+    updateFinalScore: (id, payload) => request(`/api/v1/submissions/${id}/final-score`, {
+      method: 'POST',
+      body: payload
+    }),
+  },
+};

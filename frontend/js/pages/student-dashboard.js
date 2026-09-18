@@ -29,8 +29,8 @@ export async function renderStudentDashboard() {
           <div class="stat__value">${submissions.length}</div>
         </div>
         <div class="stat">
-          <div class="stat__label">Проверено</div>
-          <div class="stat__value">${submissions.filter(s => s.status === 'checked').length}</div>
+          <div class="stat__label">Проверено AI</div>
+          <div class="stat__value">${submissions.filter(s => s.status === 'checked' || s.status === 'checked').length}</div>
         </div>
       </div>
 
@@ -39,6 +39,7 @@ export async function renderStudentDashboard() {
         ? `<div class="card" style="text-align:center;padding:var(--space-8);color:var(--text-muted)">Пока нет заданий</div>`
         : `<div class="grid grid--3">${tasks.map(taskCard).join('')}</div>`}
     `;
+
     renderLayout(content);
   } catch (err) {
     toast(err.message || 'Ошибка загрузки', 'error');

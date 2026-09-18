@@ -4,6 +4,7 @@ from sqlalchemy import (
     DateTime,
     Enum as SAEnum,
     ForeignKey,
+    Integer,
     Text,
     UniqueConstraint,
     func,
@@ -34,6 +35,12 @@ class Submission(Base, TimestampMixin):
         default=SubmissionStatus.SUBMITTED,
     )
     student_comment: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    # ⬇️⬇️⬇️ НОВЫЕ ПОЛЯ — оценка и комментарий препода ⬇️⬇️⬇️
+    final_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    teacher_feedback: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # ⬆️⬆️⬆️ КОНЕЦ НОВЫХ ПОЛЕЙ ⬆️⬆️⬆️
+
     submitted_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

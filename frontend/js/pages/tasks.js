@@ -8,9 +8,12 @@ import { store } from '../core/store.js';
 
 export async function renderTasks() {
   renderLayout(`<div class="skeleton" style="height:80px"></div>`);
+
+  const isTeacher = store.state.user?.role === 'teacher';
+
   const [tasks, groups] = await Promise.all([
     api.tasks.list().catch(() => []),
-    store.state.user?.role === 'TEACHER' ? api.groups.list().catch(() => []) : Promise.resolve([]),
+    isTeacher ? api.groups.list().catch(() => []) : Promise.resolve([]),
   ]);
 
   const content = html`
@@ -19,7 +22,7 @@ export async function renderTasks() {
         <h1>Задания</h1>
         <p class="page-header__subtitle">Все задания и дедлайны</p>
       </div>
-      ${store.state.user?.role === 'TEACHER' ? `
+      ${isTeacher ? `
         <div class="page-header__actions">
           <button class="btn btn--primary" id="create-task">+ Новое задание</button>
         </div>
@@ -30,8 +33,8 @@ export async function renderTasks() {
       ? `<div class="card" style="text-align:center;padding:var(--space-10);color:var(--text-muted)">Пока нет заданий</div>`
       : `<div class="grid grid--3">${tasks.map(taskCard).join('')}</div>`}
   `;
-  renderLayout(content);
 
+  renderLayout(content);
   document.getElementById('create-task')?.addEventListener('click', () => openCreateTaskModal(groups));
 }
 
@@ -98,6 +101,11 @@ function openCreateTaskModal(groups) {
     if (!data.title) { toast('Укажите название', 'warning'); return; }
     if (!data.group_id) delete data.group_id;
     if (!data.deadline) delete data.deadline;
+    else {
+      // Преобразуем в ISO формат для бэкенда
+      data.deadline = new Date(data.deadline).toISOString();
+    }
+
     try {
       await api.tasks.create(data);
       toast('Задание создано', 'success');

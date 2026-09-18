@@ -24,8 +24,8 @@ export async function renderGroups() {
       ? `<div class="card" style="text-align:center;padding:var(--space-10);color:var(--text-muted)">Пока нет групп. Создайте первую.</div>`
       : `<div class="grid grid--3">${groups.map(groupCard).join('')}</div>`}
   `;
-  renderLayout(content);
 
+  renderLayout(content);
   document.getElementById('create-group').addEventListener('click', openCreateGroupModal);
 }
 
