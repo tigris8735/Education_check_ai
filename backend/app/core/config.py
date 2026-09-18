@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
+from pydantic import field_validator
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -53,6 +53,24 @@ class Settings(BaseSettings):
     @property
     def max_file_size_bytes(self) -> int:
         return self.MAX_FILE_SIZE_MB * 1024 * 1024
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def _normalize_db_url(cls, v: str) -> str:
+        if not isinstance(v, str):
+            return v
+        # postgres:// → postgresql+asyncpg://
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql+asyncpg://", 1)
+        # postgresql:// → postgresql+asyncpg://
+        elif v.startswith("postgresql://"):
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        # sslmode=... → ssl=... (asyncpg не понимает sslmode)
+        v = v.replace("sslmode=require", "ssl=require")
+        v = v.replace("sslmode=prefer", "ssl=prefer")
+        v = v.replace("sslmode=verify-ca", "ssl=verify-ca")
+        v = v.replace("sslmode=verify-full", "ssl=verify-full")
+        return v
 
 
 @lru_cache
