@@ -5,7 +5,7 @@ import { logout } from './auth.js';
 export function renderLayout(content) {
   const user = store.state.user || {};
   const role = user.role || '';
-  const nav = role === 'TEACHER' ? teacherNav() : role === 'STUDENT' ? studentNav() : [];
+  const nav = role === 'teacher' ? teacherNav() : role === 'student' ? studentNav() : [];
 
   document.getElementById('app').innerHTML = html`
     <header class="topbar">

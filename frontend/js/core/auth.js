@@ -65,5 +65,5 @@ export function logout() {
   location.hash = '#/login';
 }
 
-export function isTeacher() { return store.state.user?.role === 'TEACHER'; }
-export function isStudent() { return store.state.user?.role === 'STUDENT'; }
+export function isTeacher() { return store.state.user?.role === 'teacher'; }
+export function isStudent() { return store.state.user?.role === 'student'; }

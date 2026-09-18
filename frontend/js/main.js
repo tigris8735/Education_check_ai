@@ -21,17 +21,18 @@ route('/register', () => renderRegister());
 
 route('/', () => {
   if (!store.state.user) return navigate('/login');
-  return store.state.user.role === 'TEACHER'
+  return store.state.user.role === 'teacher'
     ? renderTeacherDashboard()
     : renderStudentDashboard();
 });
 
 route('/groups', () => {
-  if (store.state.user?.role !== 'TEACHER') return navigate('/');
+  if (store.state.user?.role !== 'teacher') return navigate('/');
   return renderGroups();
 });
+
 route('/groups/:id', ({ id }) => {
-  if (store.state.user?.role !== 'TEACHER') return navigate('/');
+  if (store.state.user?.role !== 'teacher') return navigate('/');
   return renderGroupDetail({ id });
 });
 

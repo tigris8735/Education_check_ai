@@ -6,14 +6,14 @@ import { toast } from '../ui/toast.js';
 export async function renderTeacherDashboard() {
   renderLayout(`<div class="skeleton" style="height:80px"></div>`);
   try {
-    const [groups, tasks, submissions] = await Promise.all([
-      api.groups.list().catch(() => []),
-      api.tasks.list().catch(() => []),
-      api.submissions.list().catch(() => []),
-    ]);
+    const [groups, tasks] = await Promise.all([
+  api.groups.list().catch(() => []),
+  api.tasks.list().catch(() => []),
+]);
 
-    const pending = submissions.filter(s => s.status === 'SUBMITTED' || s.status === 'CHECKED');
-    const reviewed = submissions.filter(s => s.status === 'REVIEWED').length;
+    const submissions = [];
+    const pending = [];
+    const reviewed = 0;
 
     const content = html`
       <div class="page-header">
@@ -97,12 +97,11 @@ function subCard(s) {
 
 function statusBadge(status) {
   const map = {
-    DRAFT: ['draft', 'Черновик'],
-    SUBMITTED: ['submitted', 'Сдано'],
-    CHECKING: ['checking', 'AI проверяет'],
-    CHECKED: ['checked', 'AI проверено'],
-    REVIEWED: ['reviewed', 'Проверено'],
-    FAILED: ['failed', 'Ошибка AI'],
+    draft: ['draft', 'Черновик'],
+    submitted: ['submitted', 'Сдано'],
+    checking: ['checking', 'AI проверяет'],
+    checked: ['checked', 'AI проверено'],
+    failed: ['failed', 'Ошибка AI'],
   };
   const [cls, label] = map[status] || ['draft', status];
   return `<span class="badge badge--${cls}">${label}</span>`;

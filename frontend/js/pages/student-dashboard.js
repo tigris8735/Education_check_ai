@@ -30,7 +30,7 @@ export async function renderStudentDashboard() {
         </div>
         <div class="stat">
           <div class="stat__label">Проверено</div>
-          <div class="stat__value">${submissions.filter(s => s.status === 'REVIEWED').length}</div>
+          <div class="stat__value">${submissions.filter(s => s.status === 'checked').length}</div>
         </div>
       </div>
 
