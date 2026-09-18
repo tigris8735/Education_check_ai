@@ -2,6 +2,8 @@ from functools import lru_cache
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import field_validator
+from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -59,18 +61,31 @@ class Settings(BaseSettings):
     def _normalize_db_url(cls, v: str) -> str:
         if not isinstance(v, str):
             return v
-        # postgres:// → postgresql+asyncpg://
+
+        # 1. Приводим схему к postgresql+asyncpg://
         if v.startswith("postgres://"):
             v = v.replace("postgres://", "postgresql+asyncpg://", 1)
-        # postgresql:// → postgresql+asyncpg://
         elif v.startswith("postgresql://"):
             v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
-        # sslmode=... → ssl=... (asyncpg не понимает sslmode)
-        v = v.replace("sslmode=require", "ssl=require")
-        v = v.replace("sslmode=prefer", "ssl=prefer")
-        v = v.replace("sslmode=verify-ca", "ssl=verify-ca")
-        v = v.replace("sslmode=verify-full", "ssl=verify-full")
-        return v
+
+        # 2. Разбираем URL и чистим query-параметры
+        parsed = urlparse(v)
+        query = parse_qs(parsed.query)
+
+        # Удаляем параметры, которые не понимает asyncpg
+        for key in ["sslmode", "channel_binding", "options"]:
+            query.pop(key, None)
+
+        # Если был sslmode=require, ставим ssl=require
+        # (parse_qs уже удалил sslmode, поэтому проверяем исходную строку)
+        if "sslmode=require" in v and "ssl" not in query:
+            query["ssl"] = ["require"]
+
+        # Собираем URL обратно
+        new_query = urlencode(query, doseq=True)
+        new_parsed = parsed._replace(query=new_query)
+        return urlunparse(new_parsed)
+        
 
 
 @lru_cache
