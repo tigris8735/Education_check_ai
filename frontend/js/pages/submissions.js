@@ -50,8 +50,9 @@ export async function renderSubmissions() {
 }
 
 function statusClass(s) {
-  return ({ DRAFT: 'draft', SUBMITTED: 'submitted', CHECKING: 'checking', CHECKED: 'checked', REVIEWED: 'reviewed', FAILED: 'failed' })[s] || 'draft';
+  return ({ draft: 'draft', submitted: 'submitted', checking: 'checking', checked: 'checked', failed: 'failed' })[s] || 'draft';
 }
+
 function statusLabel(s) {
-  return ({ DRAFT: 'Черновик', SUBMITTED: 'Сдано', CHECKING: 'AI проверяет', CHECKED: 'AI проверено', REVIEWED: 'Проверено', FAILED: 'Ошибка AI' })[s] || s;
+  return ({ draft: 'Черновик', submitted: 'Сдано', checking: 'AI проверяет', checked: 'AI проверено', failed: 'Ошибка AI' })[s] || s;
 }

@@ -47,8 +47,12 @@ route('/tasks/:id', ({ id }) => {
 
 route('/submissions', () => {
   if (!store.state.user) return navigate('/login');
+  // Преподавателю нельзя сюда — он смотрит работы через задания
+  if (store.state.user.role === 'teacher') return navigate('/tasks');
   return renderSubmissions();
 });
+
+
 route('/submissions/:id', ({ id }) => {
   if (!store.state.user) return navigate('/login');
   return renderSubmissionDetail({ id });

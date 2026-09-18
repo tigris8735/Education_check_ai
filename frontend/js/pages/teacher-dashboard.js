@@ -56,10 +56,12 @@ export async function renderTeacherDashboard() {
 
         <section>
           <div class="row row--between" style="margin-bottom: var(--space-3)">
-            <h3>Работы на проверку</h3>
-            <a class="btn btn--ghost btn--sm" href="#/submissions">Все →</a>
+            <h3>Ваши задания</h3>
+            <a class="btn btn--ghost btn--sm" href="#/tasks">Все →</a>
           </div>
-          ${pending.length === 0 ? emptyBlock('Нет работ на проверку') : pending.slice(0, 5).map(subCard).join('')}
+          ${tasks.length === 0 
+            ? emptyBlock('Нет заданий') 
+            : tasks.slice(0, 5).map(taskCard).join('')}
         </section>
       </div>
     `;
