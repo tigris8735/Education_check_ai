@@ -15,7 +15,13 @@ export function setStoredUser(user) {
 
 export async function login(email, password) {
   const data = await api.auth.login({ email, password });
-  setTokens({ access: data.access_token, refresh: data.refresh_token });
+  
+  // Исправлено: берём токены из data.tokens
+  setTokens({ 
+    access: data.tokens.access_token, 
+    refresh: data.tokens.refresh_token 
+  });
+  
   const me = data.user || await api.auth.me();
   setStoredUser(me);
   store.set({ user: me });
@@ -24,8 +30,13 @@ export async function login(email, password) {
 
 export async function register(payload) {
   const data = await api.auth.register(payload);
-  if (data?.access_token) {
-    setTokens({ access: data.access_token, refresh: data.refresh_token });
+  
+  // Исправлено: берём токены из data.tokens
+  if (data?.tokens?.access_token) {
+    setTokens({ 
+      access: data.tokens.access_token, 
+      refresh: data.tokens.refresh_token 
+    });
     const me = data.user || await api.auth.me();
     setStoredUser(me);
     store.set({ user: me });
