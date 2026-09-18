@@ -49,22 +49,37 @@ export function renderRegister() {
   const btn = document.getElementById('submit-btn');
 
   form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const payload = readForm(form);
-    btn.disabled = true;
-    btn.textContent = 'Создание…';
-    try {
-      await register(payload);
-      toast('Аккаунт создан. Выполняется вход…', 'success');
-      await login(payload.email, payload.password).catch(() => {});
-      navigate('/');
-    } catch (err) {
-      toast(err.message || 'Ошибка регистрации', 'error');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = 'Создать аккаунт';
-    }
-  });
+  e.preventDefault();
+  const payload = readForm(form);
+  
+  // Разбиваем full_name на first_name и last_name
+  const fullName = payload.full_name || '';
+  const nameParts = fullName.trim().split(/\s+/);
+  const firstName = nameParts[0] || '';
+  const lastName = nameParts.slice(1).join(' ') || '';
+  
+  const registerData = {
+    first_name: firstName,
+    last_name: lastName,
+    email: payload.email,
+    password: payload.password,
+    role: payload.role,
+  };
+  
+  btn.disabled = true;
+  btn.textContent = 'Создание…';
+  try {
+    await register(registerData);
+    toast('Аккаунт создан. Выполняется вход…', 'success');
+    await login(payload.email, payload.password).catch(() => {});
+    navigate('/');
+  } catch (err) {
+    toast(err.message || 'Ошибка регистрации', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Создать аккаунт';
+  }
+});
 }
 
 // локальный импорт, чтобы не плодить зависимости
