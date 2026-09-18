@@ -14,7 +14,7 @@ from app.services.group_service.schemas import (
 from app.services.group_service import service as group_service
 from app.services.user_service.models import User
 from app.shared.permissions import get_current_user, require_teacher
-
+from app.services.group_service.models import Group
 router = APIRouter()
 
 

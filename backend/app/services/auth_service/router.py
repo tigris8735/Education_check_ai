@@ -12,7 +12,7 @@ from app.services.auth_service.schemas import (
     TokenPair,
 )
 from app.services.user_service.schemas import UserCreate, UserOut
-
+from app.services.user_service import crud
 router = APIRouter()
 
 

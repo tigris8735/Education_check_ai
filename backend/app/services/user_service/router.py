@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.services.user_service import service as user_service
-from models import User
+from app.services.user_service.models import User
 from schemas import UserOut, UserUpdate
 from app.shared.permissions import get_current_user
 
