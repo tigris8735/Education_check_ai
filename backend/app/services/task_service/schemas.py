@@ -2,6 +2,8 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.services.file_service.schemas import FileOut
+
 
 class TaskCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
@@ -51,10 +53,10 @@ class TaskOut(BaseModel):
     created_at: datetime
     is_expired: bool = False
     max_attempts: int = 0
-    # Для карточек
     group_names: list[str] = []
-    members_count: int = 0       # сумма участников всех групп задания
+    members_count: int = 0
     submissions_count: int = 0
+    attachments: list[FileOut] = []     # ← НОВОЕ: файлы задания
 
 
 class TaskDetail(TaskOut):

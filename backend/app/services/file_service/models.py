@@ -20,6 +20,10 @@ class FileMeta(Base, TimestampMixin):
     submission_id: Mapped[int | None] = mapped_column(
         ForeignKey("submissions.id", ondelete="CASCADE"), nullable=True, index=True
     )
+    # ← НОВОЕ: файл прикреплён к заданию (методичка от препода)
+    task_id: Mapped[int | None] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     status: Mapped[FileStatus] = mapped_column(
         SAEnum(FileStatus, name="file_status", native_enum=False, length=20),
         nullable=False,

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.services.file_service import crud as file_crud
 from app.services.group_service import crud as group_crud
 from app.services.submission_service import crud as submission_crud
 from app.services.task_service import crud as task_crud
@@ -26,6 +27,7 @@ async def _to_task_out(db: AsyncSession, t: Task) -> TaskOut:
 
     subs = await submission_crud.list_by_task(db, t.id)
     members = await task_crud.total_members_for_task(db, t.id)
+    attachments = await file_crud.list_by_task(db, t.id)
 
     return TaskOut(
         id=t.id,
@@ -35,10 +37,11 @@ async def _to_task_out(db: AsyncSession, t: Task) -> TaskOut:
         deadline=t.deadline,
         created_at=t.created_at,
         is_expired=task_crud.is_expired(t),
-        max_attempts=t.max_attempts or 0,          # ← защита от NULL из старых строк
+        max_attempts=t.max_attempts or 0,
         group_names=group_names,
         members_count=members,
         submissions_count=len(subs),
+        attachments=[f for f in attachments],
     )
 
 

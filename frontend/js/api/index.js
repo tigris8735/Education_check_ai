@@ -47,8 +47,8 @@ export const api = {
   },
   files: {
     presign: (p) => request('/api/v1/files/presign-upload', { method: 'POST', body: p }),
-    confirm: (id, submissionId) =>
-      request(`/api/v1/files/${id}/confirm`, { method: 'POST', body: { submission_id: submissionId } }),
+    confirm: (id, payload = {}) =>
+      request(`/api/v1/files/${id}/confirm`, { method: 'POST', body: payload }),
     downloadUrl: (id) => request(`/api/v1/files/${id}/download-url`),
     list:   ()      => request('/api/v1/files'),
     remove: (id)    => request(`/api/v1/files/${id}`, { method: 'DELETE' }),

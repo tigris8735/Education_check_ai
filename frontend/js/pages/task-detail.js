@@ -17,13 +17,13 @@ export async function renderTaskDetail({ id }) {
     const isTeacher = store.state.user?.role === 'teacher';
     const me = store.state.user;
 
-    // У студента: все его попытки по этому заданию
     let myAttempts = [];
     if (!isTeacher) {
       try {
         const allSubs = await api.submissions.list().catch(() => []);
-        myAttempts = allSubs.filter(s => s.task_id === task.id && s.student_id === me?.id)
-                              .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
+        myAttempts = allSubs
+          .filter(s => s.task_id === task.id && s.student_id === me?.id)
+          .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
       } catch {}
     }
 
@@ -79,11 +79,35 @@ export async function renderTaskDetail({ id }) {
         <div class="md">${escape(task.description || '—')}</div>
       </div>
 
+      ${(task.attachments?.length ?? 0) > 0 ? `
+        <div class="card" style="margin-bottom: var(--space-6)">
+          <h4 style="margin-bottom: var(--space-3)">Файлы задания (${task.attachments.length})</h4>
+          <div class="stack stack--sm">
+            ${task.attachments.map(f => `
+              <div class="row row--between">
+                <div>📎 ${escape(f.original_name)}
+                  <span class="text-muted" style="font-size:var(--fs-sm)">(${(f.size / 1024).toFixed(1)} KB)</span>
+                </div>
+                <button class="btn btn--secondary btn--sm" data-download="${f.id}">Скачать</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>` : ''}
+
       ${!isTeacher && myAttempts.length > 1 ? renderAttemptsHistory(myAttempts) : ''}
       ${isTeacher ? renderTeacherSubmissions(submissions) : ''}
     `;
 
     renderLayout(content);
+
+    document.querySelectorAll('[data-download]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        try {
+          const { url } = await api.files.downloadUrl(btn.getAttribute('data-download'));
+          window.open(url, '_blank');
+        } catch (e) { toast(e.message, 'error'); }
+      });
+    });
 
     document.getElementById('submit-btn')
       ?.addEventListener('click', () => openSubmitModal(task, null));
@@ -235,7 +259,7 @@ function openSubmitModal(task, existing) {
           body: file,
         });
         if (!putRes.ok) throw new Error(`Хранилище отклонило файл (HTTP ${putRes.status})`);
-        await api.files.confirm(presign.file_id, submissionId);
+        await api.files.confirm(presign.file_id, { submission_id: submissionId });
       }
 
       toast('Работа отправлена', 'success');

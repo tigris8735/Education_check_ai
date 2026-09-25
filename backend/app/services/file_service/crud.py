@@ -1,4 +1,3 @@
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,11 +23,14 @@ async def mark_uploaded(
     *,
     size: int,
     submission_id: int | None = None,
+    task_id: int | None = None,
 ) -> FileMeta:
     file.status = FileStatus.UPLOADED
     file.size = size
     if submission_id is not None:
         file.submission_id = submission_id
+    if task_id is not None:
+        file.task_id = task_id
     await db.commit()
     await db.refresh(file)
     return file
@@ -42,6 +44,15 @@ async def delete(db: AsyncSession, file: FileMeta) -> None:
 async def list_by_submission(db: AsyncSession, submission_id: int) -> list[FileMeta]:
     result = await db.execute(
         select(FileMeta).where(FileMeta.submission_id == submission_id)
+    )
+    return list(result.scalars().all())
+
+
+async def list_by_task(db: AsyncSession, task_id: int) -> list[FileMeta]:
+    result = await db.execute(
+        select(FileMeta)
+        .where(FileMeta.task_id == task_id, FileMeta.status == FileStatus.UPLOADED)
+        .order_by(FileMeta.created_at)
     )
     return list(result.scalars().all())
 

@@ -24,7 +24,6 @@ class PresignUploadIn(BaseModel):
     @field_validator("original_name")
     @classmethod
     def _safe_name(cls, v: str) -> str:
-        # запрещаем path traversal и управляющие символы
         cleaned = v.strip().replace("\\", "/").split("/")[-1]
         if not cleaned:
             raise ValueError("Некорректное имя файла")
@@ -40,6 +39,7 @@ class PresignUploadOut(BaseModel):
 
 class FileConfirmIn(BaseModel):
     submission_id: int | None = None
+    task_id: int | None = None          # ← НОВОЕ
 
 
 class FileOut(BaseModel):
@@ -52,6 +52,7 @@ class FileOut(BaseModel):
     status: FileStatus
     uploaded_by_id: int
     submission_id: int | None
+    task_id: int | None                 # ← НОВОЕ
     created_at: datetime
 
 
