@@ -34,8 +34,8 @@ export async function renderStudentDashboard() {
         </div>
       </div>
 
-      <div class="grid grid--4" style="margin-bottom: var(--space-4)">
-        <div class="stat stat--accent">
+      <div class="grid grid--4 staggered" style="margin-bottom: var(--space-4)">
+        <div class="stat">
           <div class="stat__label">Мои группы</div>
           <div class="stat__value">${groups.length}</div>
           <div class="stat__hint">учебных групп</div>
@@ -52,14 +52,12 @@ export async function renderStudentDashboard() {
         </div>
         <div class="stat">
           <div class="stat__label">Средний балл</div>
-          <div class="stat__value">${avg != null
-            ? `<span class="score score--${scoreClass(avg)}"><span class="score__value">${avg}</span></span>`
-            : '—'}</div>
+          <div class="stat__value">${avg != null ? avg : '—'}</div>
           <div class="stat__hint">по итоговым оценкам</div>
         </div>
       </div>
 
-      <div class="grid grid--4" style="margin-bottom: var(--space-6)">
+      <div class="grid grid--4 staggered" style="margin-bottom: var(--space-6)">
         <div class="stat">
           <div class="stat__label">Ожидают проверки</div>
           <div class="stat__value">${pending.length}</div>
@@ -111,10 +109,4 @@ function taskCard(t) {
       </div>
     </a>
   `;
-}
-
-function scoreClass(v) {
-  if (v >= 75) return 'good';
-  if (v >= 50) return 'warn';
-  return 'bad';
 }

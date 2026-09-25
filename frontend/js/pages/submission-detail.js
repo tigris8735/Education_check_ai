@@ -9,7 +9,7 @@ export async function renderSubmissionDetail({ id }) {
   try {
     const s = await api.submissions.get(id);
     const isTeacher = store.state.user?.role === 'teacher';
-    const canComment = isTeacher && ['checked', 'reviewed'].includes(s.status);
+    const hasVerdict = s.final_score != null || (s.teacher_feedback || '').trim().length > 0;
 
     const content = html`
       <div class="breadcrumbs">
@@ -50,6 +50,8 @@ export async function renderSubmissionDetail({ id }) {
         </div>
       </div>
 
+      ${!isTeacher && hasVerdict ? teacherVerdictCard(s) : ''}
+
       ${(s.files?.length ?? 0) > 0 ? `
         <div class="card" style="margin-bottom: var(--space-6)">
           <h4 style="margin-bottom: var(--space-3)">Файлы работы (${s.files.length})</h4>
@@ -65,28 +67,6 @@ export async function renderSubmissionDetail({ id }) {
           </div>
         </div>` : ''}
 
-      ${(s.comments?.length ?? 0) > 0 ? `
-        <div class="card" style="margin-bottom: var(--space-6)">
-          <h4 style="margin-bottom: var(--space-3)">Комментарии преподавателя (${s.comments.length})</h4>
-          <div class="stack stack--sm">
-            ${s.comments.map(c => `
-              <div style="padding:8px;border-bottom:1px solid var(--border)">
-                <div class="text-muted" style="font-size:var(--fs-sm)">${formatDateTime(c.created_at)}</div>
-                <div>${escape(c.text)}</div>
-              </div>
-            `).join('')}
-          </div>
-        </div>` : ''}
-
-      ${canComment ? `
-        <div class="card" style="margin-bottom: var(--space-6)">
-          <h4 style="margin-bottom: var(--space-3)">Дополнить комментарий к оценке</h4>
-          <form id="comment-form" class="stack">
-            <textarea class="textarea" name="text" rows="3" placeholder="Ваши замечания студенту" required></textarea>
-            <div><button class="btn btn--secondary btn--sm" type="submit">Отправить</button></div>
-          </form>
-        </div>` : ''}
-
       ${isTeacher ? renderTeacherReview(s) : ''}
     `;
 
@@ -99,17 +79,6 @@ export async function renderSubmissionDetail({ id }) {
           window.open(url, '_blank');
         } catch (e) { toast(e.message, 'error'); }
       });
-    });
-
-    document.getElementById('comment-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const text = e.target.elements.text.value.trim();
-      if (!text) return;
-      try {
-        await api.submissions.addComment(id, text);
-        toast('Комментарий добавлен', 'success');
-        renderSubmissionDetail({ id });
-      } catch (err) { toast(err.message, 'error'); }
     });
 
     document.getElementById('run-ai')?.addEventListener('click', async () => {
@@ -156,6 +125,24 @@ export async function renderSubmissionDetail({ id }) {
     toast(err.message, 'error');
     renderLayout(`<div class="empty"><div class="empty__title">Работа не найдена</div></div>`);
   }
+}
+
+/* Карточка вердикта препода для СТУДЕНТА */
+function teacherVerdictCard(s) {
+  return html`
+    <div class="card verdict-card" style="margin-bottom: var(--space-6)">
+      <h4 style="margin-bottom: var(--space-3)">Оценка и комментарий преподавателя</h4>
+      ${s.final_score != null ? `
+        <div style="margin-bottom: var(--space-3)">
+          <span class="score score--${scoreClass(s.final_score)}">
+            <span class="score__value">${s.final_score}</span><span class="score__max">/100</span>
+          </span>
+        </div>` : ''}
+      ${s.teacher_feedback
+        ? `<div class="submission-text">${escape(s.teacher_feedback)}</div>`
+        : `<p class="text-muted">Комментарий не оставлен</p>`}
+    </div>
+  `;
 }
 
 function renderTeacherReview(s) {

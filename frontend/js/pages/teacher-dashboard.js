@@ -1,6 +1,6 @@
 import { api } from '../api/index.js';
 import { renderLayout } from '../core/layout.js';
-import { html } from '../ui/render.js';
+import { html, escape } from '../ui/render.js';
 import { toast } from '../ui/toast.js';
 
 export async function renderTeacherDashboard() {
@@ -18,7 +18,10 @@ export async function renderTeacherDashboard() {
 
     const activeTasks = tasks.filter(t => !t.is_expired);
     const expiredTasks = tasks.filter(t => t.is_expired);
-    const pending = subs.filter(s => s.status === 'submitted' || s.status === 'checking');
+    const queueAll = subs
+      .filter(s => ['submitted', 'checking', 'checked'].includes(s.status))
+      .sort((a, b) => new Date(b.submitted_at || b.created_at) - new Date(a.submitted_at || a.created_at));
+    const queue = queueAll.slice(0, 3);
     const aiChecked = subs.filter(s => s.status === 'checked');
     const reviewed = subs.filter(s => s.status === 'reviewed');
     const finals = subs.map(s => s.final_score).filter(v => v != null);
@@ -35,7 +38,7 @@ export async function renderTeacherDashboard() {
       </div>
 
       <div class="grid grid--4 staggered" style="margin-bottom: var(--space-4)">
-        <div class="stat stat--accent">
+        <div class="stat">
           <div class="stat__label">Группы</div>
           <div class="stat__value">${groups.length}</div>
           <div class="stat__hint">ведёте сейчас</div>
@@ -60,7 +63,7 @@ export async function renderTeacherDashboard() {
       <div class="grid grid--4 staggered" style="margin-bottom: var(--space-6)">
         <div class="stat">
           <div class="stat__label">На проверку</div>
-          <div class="stat__value">${pending.length}</div>
+          <div class="stat__value">${queueAll.length}</div>
           <div class="stat__hint">ожидают вашего решения</div>
         </div>
         <div class="stat">
@@ -75,10 +78,15 @@ export async function renderTeacherDashboard() {
         </div>
         <div class="stat">
           <div class="stat__label">Средний балл</div>
-          <div class="stat__value">${avg != null ? `<span class="score score--${scoreClass(avg)}"><span class="score__value">${avg}</span></span>` : '—'}</div>
+          <div class="stat__value">${avg != null ? avg : '—'}</div>
           <div class="stat__hint">по итоговым оценкам</div>
         </div>
       </div>
+
+      <h3 style="margin-bottom: var(--space-3)">Отправлены на проверку</h3>
+      ${queue.length === 0
+        ? `<div class="card" style="text-align:center;padding:var(--space-8);color:var(--text-muted)">Нет работ на проверку 🎉</div>`
+        : `<div class="grid grid--3 staggered">${queue.map(queueCard).join('')}</div>`}
     `;
 
     renderLayout(content);
@@ -88,8 +96,30 @@ export async function renderTeacherDashboard() {
   }
 }
 
-function scoreClass(v) {
-  if (v >= 75) return 'good';
-  if (v >= 50) return 'warn';
-  return 'bad';
+function queueCard(s) {
+  return html`
+    <a class="card card--interactive" href="#/submissions/${s.id}">
+      <div class="card__header">
+        <div class="card__title">${escape(s.student_last_name || '')} ${escape(s.student_first_name || '')}</div>
+        <span class="badge badge--${statusClass(s.status)}">${statusLabel(s.status)}</span>
+      </div>
+      <div class="card__body" style="margin-bottom:var(--space-3)">
+        ${escape(s.task_title || 'Задание #' + s.task_id)}
+      </div>
+      <div class="card__footer">
+        <span class="badge">${escape(s.student_group_name || '—')}</span>
+        <span class="text-muted" style="font-size:var(--fs-sm)">AI: ${s.ai_score ?? '—'}</span>
+      </div>
+    </a>
+  `;
+}
+
+function statusClass(s) {
+  return ({ draft: 'draft', submitted: 'submitted', checking: 'checking',
+            checked: 'checked', reviewed: 'reviewed', failed: 'failed' })[s] || 'draft';
+}
+
+function statusLabel(s) {
+  return ({ draft: 'Черновик', submitted: 'Сдано', checking: 'AI проверяет',
+            checked: 'AI проверено', reviewed: 'Оценено', failed: 'Ошибка' })[s] || s;
 }

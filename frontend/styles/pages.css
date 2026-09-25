@@ -17,60 +17,64 @@
   padding: var(--space-8);
 }
 
-/* ===== Stat cards ===== */
+/* ===== Stat cards: единый градиентный стиль для обоих дашбордов ===== */
 .stat {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid transparent;
   border-radius: var(--radius-lg);
   padding: var(--space-5);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-  transition: transform var(--transition-base), box-shadow var(--transition-base),
-              border-color var(--transition-base);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+.stat::after {
+  content: '';
+  position: absolute; inset: 0;
+  background: radial-gradient(420px 140px at 85% -10%, rgba(255,255,255,.18), transparent 60%);
+  pointer-events: none;
 }
 .stat:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--border-strong);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
 }
+/* 4 чередующихся градиента */
+.stat:nth-child(4n+1) { background: linear-gradient(135deg, var(--accent), var(--ai)); }
+.stat:nth-child(4n+2) { background: linear-gradient(135deg, var(--info), var(--accent)); }
+.stat:nth-child(4n+3) { background: linear-gradient(135deg, var(--success), var(--info)); }
+.stat:nth-child(4n+4) { background: linear-gradient(135deg, var(--warning), var(--danger)); }
+
 .stat__label {
-  color: var(--text-muted);
+  color: rgba(255,255,255,.85);
   font-size: var(--fs-sm);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 .stat__value {
+  color: #fff;
   font-size: var(--fs-3xl);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.15;
-  color: var(--text-primary);
 }
 .stat__hint {
-  color: var(--text-muted);
+  color: rgba(255,255,255,.75);
   font-size: var(--fs-xs);
   margin-top: auto;
   padding-top: var(--space-2);
 }
+.stat .score, .stat .score__value { color: #fff; }
+.stat .score__max { color: rgba(255,255,255,.7); }
 
-/* Акцентная карточка с градиентом */
-.stat--accent {
-  background: linear-gradient(135deg, var(--accent), var(--ai));
-  border-color: transparent;
-  box-shadow: var(--shadow-md);
-}
-.stat--accent:hover {
-  box-shadow: var(--shadow-lg);
+/* ===== Карточка вердикта препода (для студента) ===== */
+.verdict-card {
+  background: linear-gradient(135deg, var(--accent-soft), var(--ai-soft));
   border-color: transparent;
 }
-.stat--accent .stat__label,
-.stat--accent .stat__hint { color: rgba(255, 255, 255, 0.8); }
-.stat--accent .stat__value { color: #fff; }
-.stat--accent .score,
-.stat--accent .score__value { color: #fff; }
-.stat--accent .score__max { color: rgba(255, 255, 255, 0.7); }
 
 /* ===== AI review ===== */
 .ai-review {
@@ -158,7 +162,7 @@
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ===== Groups picker (чекбоксы групп в модалке создания задания) ===== */
+/* ===== Groups picker ===== */
 .groups-picker {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -185,14 +189,12 @@
   flex-shrink: 0;
 }
 
-/* ===== Полировка интерактивных карточек ===== */
+/* ===== Полировка карточек и бейджей ===== */
 .card--interactive:hover {
   box-shadow: var(--shadow-md);
   border-color: var(--accent);
   transform: translateY(-2px);
 }
-
-/* ===== Полировка бейджей ===== */
 .badge--role {
   background: linear-gradient(135deg, var(--accent-soft), var(--ai-soft));
   color: var(--accent-hover);
@@ -210,7 +212,7 @@
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
-/* ===== Блик на логотипе в topbar ===== */
+/* ===== Блик на логотипе ===== */
 .topbar__logo {
   position: relative;
   overflow: hidden;
@@ -219,10 +221,10 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, transparent 40%, rgba(255, 255, 255, 0.25) 50%, transparent 60%);
+  background: linear-gradient(120deg, transparent 40%, rgba(255,255,255,0.25) 50%, transparent 60%);
   animation: shine 3.5s ease-in-out infinite;
 }
 @keyframes shine {
   0%, 60% { transform: translateX(-100%); }
-  100%    { transform: translateX(100%); }
+  100% { transform: translateX(100%); }
 }
