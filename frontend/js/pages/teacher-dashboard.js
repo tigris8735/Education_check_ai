@@ -12,7 +12,6 @@ export async function renderTeacherDashboard() {
       api.submissions.list().catch(() => []),
     ]);
 
-    // уникальные студенты по всем группам
     const details = await Promise.all(groups.map(g => api.groups.get(g.id).catch(() => null)));
     const studentIds = new Set();
     details.forEach(g => g?.members?.forEach(m => studentIds.add(m.id)));
@@ -35,8 +34,8 @@ export async function renderTeacherDashboard() {
         </div>
       </div>
 
-      <div class="grid grid--4" style="margin-bottom: var(--space-4)">
-        <div class="stat">
+      <div class="grid grid--4 staggered" style="margin-bottom: var(--space-4)">
+        <div class="stat stat--accent">
           <div class="stat__label">Группы</div>
           <div class="stat__value">${groups.length}</div>
           <div class="stat__hint">ведёте сейчас</div>
@@ -58,7 +57,7 @@ export async function renderTeacherDashboard() {
         </div>
       </div>
 
-      <div class="grid grid--4" style="margin-bottom: var(--space-6)">
+      <div class="grid grid--4 staggered" style="margin-bottom: var(--space-6)">
         <div class="stat">
           <div class="stat__label">На проверку</div>
           <div class="stat__value">${pending.length}</div>

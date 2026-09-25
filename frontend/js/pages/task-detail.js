@@ -16,8 +16,22 @@ export async function renderTaskDetail({ id }) {
 
     const isTeacher = store.state.user?.role === 'teacher';
     const me = store.state.user;
-    const own = !isTeacher ? submissions.find(s => s.student_id === me?.id) : null;
-    const canEdit = own && !['checking', 'checked', 'reviewed'].includes(own.status);
+
+    // У студента: все его попытки по этому заданию
+    let myAttempts = [];
+    if (!isTeacher) {
+      try {
+        const allSubs = await api.submissions.list().catch(() => []);
+        myAttempts = allSubs.filter(s => s.task_id === task.id && s.student_id === me?.id)
+                              .sort((a, b) => new Date(b.submitted_at) - new Date(a.submitted_at));
+      } catch {}
+    }
+
+    const latestOwn = myAttempts[0];
+    const canEdit = latestOwn && !['checking', 'checked', 'reviewed'].includes(latestOwn.status);
+    const attemptsUsed = myAttempts.length;
+    const attemptsLeft = task.max_attempts > 0 ? task.max_attempts - attemptsUsed : Infinity;
+    const canSubmit = !isTeacher && !task.is_expired && attemptsLeft > 0;
 
     const content = html`
       <div class="breadcrumbs">
@@ -32,25 +46,40 @@ export async function renderTaskDetail({ id }) {
         <div class="page-header__title">
           <h1>${escape(task.title)}</h1>
           <p class="page-header__subtitle">
-            Группа: ${escape(task.group_name || '—')} · Дедлайн: ${formatDateTime(task.deadline)}
+            Группы: <span class="badge badge--role">${escape((task.group_names || []).join(', ') || '—')}</span>
+            · Дедлайн: ${formatDateTime(task.deadline)}
             ${task.is_expired ? ' · просрочено' : ' · ' + relativeDeadline(task.deadline)}
           </p>
         </div>
         <div class="page-header__actions">
-          ${!isTeacher && !own && !task.is_expired
-            ? `<button class="btn btn--primary" id="submit-btn">📤 Сдать работу</button>` : ''}
-          ${canEdit
-            ? `<button class="btn btn--secondary" id="edit-btn">✏️ Редактировать</button>` : ''}
-          ${own
-            ? `<a class="btn btn--ghost" href="#/submissions/${own.id}">Моя работа</a>` : ''}
+          ${canSubmit ? `<button class="btn btn--primary" id="submit-btn">📤 ${attemptsUsed > 0 ? 'Новая попытка' : 'Сдать работу'}</button>` : ''}
+          ${canEdit ? `<button class="btn btn--secondary" id="edit-btn">✏️ Редактировать</button>` : ''}
+          ${latestOwn ? `<a class="btn btn--ghost" href="#/submissions/${latestOwn.id}">Последняя работа</a>` : ''}
         </div>
       </div>
+
+      ${!isTeacher && task.max_attempts > 0 ? `
+        <div class="card" style="margin-bottom: var(--space-4);background:var(--accent-soft);border-color:transparent">
+          <div class="row row--between">
+            <div>
+              <strong>Лимит попыток</strong>
+              <div class="text-muted" style="font-size:var(--fs-sm)">
+                Использовано ${attemptsUsed} из ${task.max_attempts}
+                ${attemptsLeft > 0 ? ` · осталось ${attemptsLeft}` : ' · попытки исчерпаны'}
+              </div>
+            </div>
+            <div class="progress" style="width:160px">
+              <div class="progress__bar" style="width:${Math.min(100, (attemptsUsed / task.max_attempts) * 100)}%"></div>
+            </div>
+          </div>
+        </div>` : ''}
 
       <div class="card" style="margin-bottom: var(--space-6)">
         <h4 style="margin-bottom: var(--space-3)">Условие задания</h4>
         <div class="md">${escape(task.description || '—')}</div>
       </div>
 
+      ${!isTeacher && myAttempts.length > 1 ? renderAttemptsHistory(myAttempts) : ''}
       ${isTeacher ? renderTeacherSubmissions(submissions) : ''}
     `;
 
@@ -59,11 +88,37 @@ export async function renderTaskDetail({ id }) {
     document.getElementById('submit-btn')
       ?.addEventListener('click', () => openSubmitModal(task, null));
     document.getElementById('edit-btn')
-      ?.addEventListener('click', () => openSubmitModal(task, own));
+      ?.addEventListener('click', () => openSubmitModal(task, latestOwn));
   } catch (err) {
     toast(err.message, 'error');
     renderLayout(`<div class="empty"><div class="empty__title">Задание не найдено</div></div>`);
   }
+}
+
+function renderAttemptsHistory(attempts) {
+  return html`
+    <h3 style="margin-bottom: var(--space-3)">История попыток (${attempts.length})</h3>
+    <div class="table-wrapper" style="margin-bottom: var(--space-6)">
+      <table class="table">
+        <thead>
+          <tr><th>№</th><th>Статус</th><th>AI</th><th>Итог</th><th>Дата</th></tr>
+        </thead>
+        <tbody>
+          ${attempts.map((s, i) => `
+            <tr onclick="location.hash='#/submissions/${s.id}'" style="cursor:pointer">
+              <td class="text-mono">Попытка ${i + 1}</td>
+              <td><span class="badge badge--${statusClass(s.status)}">${statusLabel(s.status)}</span></td>
+              <td>${s.ai_score ?? '—'}</td>
+              <td>${s.final_score != null
+                ? `<span class="score score--${scoreClass(s.final_score)}"><span class="score__value">${s.final_score}</span></span>`
+                : '—'}</td>
+              <td class="text-muted">${formatDateTime(s.submitted_at || s.created_at)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function renderTeacherSubmissions(submissions) {
@@ -75,14 +130,7 @@ function renderTeacherSubmissions(submissions) {
     <div class="table-wrapper">
       <table class="table">
         <thead>
-          <tr>
-            <th>Студент</th>
-            <th>Группа</th>
-            <th>Статус</th>
-            <th>AI</th>
-            <th>Итог</th>
-            <th>Дата</th>
-          </tr>
+          <tr><th>Студент</th><th>Группа</th><th>Статус</th><th>AI</th><th>Итог</th><th>Дата</th></tr>
         </thead>
         <tbody>
           ${submissions.map(s => `
@@ -186,9 +234,7 @@ function openSubmitModal(task, existing) {
           headers: { 'Content-Type': file.type || 'application/octet-stream' },
           body: file,
         });
-        if (!putRes.ok) {
-          throw new Error(`Хранилище отклонило файл (HTTP ${putRes.status})`);
-        }
+        if (!putRes.ok) throw new Error(`Хранилище отклонило файл (HTTP ${putRes.status})`);
         await api.files.confirm(presign.file_id, submissionId);
       }
 

@@ -17,19 +17,26 @@ router = APIRouter()
 
 
 async def _to_task_out(db: AsyncSession, t: Task) -> TaskOut:
-    group = await group_crud.get_by_id(db, t.group_id)
-    members = await group_crud.members_count(db, t.group_id) if group else 0
+    gids = await task_crud.group_ids_for_task(db, t.id)
+    group_names: list[str] = []
+    for gid in gids:
+        g = await group_crud.get_by_id(db, gid)
+        if g:
+            group_names.append(g.name)
+
     subs = await submission_crud.list_by_task(db, t.id)
+    members = await task_crud.total_members_for_task(db, t.id)
+
     return TaskOut(
         id=t.id,
-        group_id=t.group_id,
         teacher_id=t.teacher_id,
         title=t.title,
         description=t.description,
         deadline=t.deadline,
         created_at=t.created_at,
         is_expired=task_crud.is_expired(t),
-        group_name=group.name if group else "",
+        max_attempts=t.max_attempts,
+        group_names=group_names,
         members_count=members,
         submissions_count=len(subs),
     )

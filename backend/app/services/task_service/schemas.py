@@ -7,7 +7,8 @@ class TaskCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     description: str = Field("", max_length=5000)
     deadline: datetime
-    group_id: int
+    group_ids: list[int] = Field(..., min_length=1)
+    max_attempts: int = Field(0, ge=0, description="0 = без ограничений")
 
     @field_validator("deadline")
     @classmethod
@@ -24,6 +25,7 @@ class TaskUpdate(BaseModel):
     title: str | None = Field(None, min_length=1, max_length=200)
     description: str | None = Field(None, max_length=5000)
     deadline: datetime | None = None
+    max_attempts: int | None = Field(None, ge=0)
 
     @field_validator("deadline")
     @classmethod
@@ -42,16 +44,16 @@ class TaskOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
-    group_id: int
     teacher_id: int
     title: str
     description: str
     deadline: datetime
     created_at: datetime
     is_expired: bool = False
-    # ← НОВОЕ: для карточек списка
-    group_name: str = ""
-    members_count: int = 0
+    max_attempts: int = 0
+    # Для карточек
+    group_names: list[str] = []
+    members_count: int = 0       # сумма участников всех групп задания
     submissions_count: int = 0
 
 

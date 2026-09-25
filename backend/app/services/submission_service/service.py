@@ -50,12 +50,23 @@ async def create_submission(
     if not task:
         raise NotFoundError("Задание не найдено")
 
-    member = await group_crud.get_member(db, task.group_id, student.id)
-    if not member:
-        raise ForbiddenError("Вы не состоите в группе этого задания")
+    # студент должен быть в хотя бы одной группе задания
+    task_groups = await task_crud.group_ids_for_task(db, task.id)
+    member_of_any = False
+    for gid in task_groups:
+        if await group_crud.get_member(db, gid, student.id):
+            member_of_any = True
+            break
+    if not member_of_any:
+        raise ForbiddenError("Вы не состоите ни в одной группе этого задания")
 
-    if await crud.get_by_task_and_student(db, task.id, student.id):
-        raise ConflictError("Вы уже сдали это задание")
+    # проверка лимита попыток
+    existing_attempts = await crud.list_by_task_and_student(db, task.id, student.id)
+    if task.max_attempts > 0 and len(existing_attempts) >= task.max_attempts:
+        raise ConflictError(
+            f"Превышен лимит попыток ({task.max_attempts}). "
+            "Больше сдать это задание нельзя."
+        )
 
     if _is_task_expired(task):
         raise ValidationError("Срок сдачи задания истёк")
@@ -93,8 +104,21 @@ async def build_detail(db: AsyncSession, sub: Submission) -> SubmissionDetail:
     student = await user_crud.get_by_id(db, sub.student_id)
     group_name = ""
     if task:
-        group = await group_crud.get_by_id(db, task.group_id)
-        group_name = group.name if group else ""
+        gids = await task_crud.group_ids_for_task(db, task.id)
+        for gid in gids:
+            if await group_crud.get_member(db, gid, sub.student_id):
+                g = await group_crud.get_by_id(db, gid)
+                if g:
+                    group_name = g.name
+                break
+
+    # номер попытки: сортируем все попытки студента по заданию
+    attempts = await crud.list_by_task_and_student(db, sub.task_id, sub.student_id)
+    attempt_number = 1
+    for i, a in enumerate(attempts, start=1):
+        if a.id == sub.id:
+            attempt_number = i
+            break
 
     return SubmissionDetail(
         id=sub.id,
@@ -116,6 +140,9 @@ async def build_detail(db: AsyncSession, sub: Submission) -> SubmissionDetail:
         student_last_name=student.last_name if student else "",
         student_group_name=group_name,
         task_title=task.title if task else "",
+        attempt_number=attempt_number,
+        total_attempts=len(attempts),
+        max_attempts=task.max_attempts if task else 0,
     )
 
 
@@ -124,9 +151,15 @@ async def list_submissions(
 ) -> list[Submission]:
     if user.role == Role.STUDENT:
         if task_id is not None:
-            sub = await crud.get_by_task_and_student(db, task_id, user.id)
-            return [sub] if sub else []
-        return await crud.list_by_student(db, user.id)
+            attempts = await crud.list_by_task_and_student(db, task_id, user.id)
+            return attempts[:1] if attempts else []
+        # последняя попытка по каждому заданию
+        all_subs = await crud.list_by_student(db, user.id)
+        latest_by_task: dict[int, Submission] = {}
+        for s in all_subs:
+            if s.task_id not in latest_by_task:
+                latest_by_task[s.task_id] = s
+        return list(latest_by_task.values())
 
     if task_id is None:
         tasks = await task_crud.list_by_teacher(db, user.id)
@@ -197,7 +230,6 @@ async def delete_submission(db: AsyncSession, submission_id: int, user: User) ->
 async def add_comment(
     db: AsyncSession, submission_id: int, data: CommentCreate, user: User
 ) -> Comment:
-    """Комментарии — только преподаватель, как дополнение к проверке работы."""
     if user.role != Role.TEACHER:
         raise ForbiddenError("Комментарии к работе может оставлять только преподаватель")
 

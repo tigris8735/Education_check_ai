@@ -3,6 +3,14 @@ import { html, initials, escape } from '../ui/render.js';
 import { logout } from './auth.js';
 import { toggleTheme, getStoredTheme } from './theme.js';
 
+const ICONS = {
+  dashboard: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>',
+  groups: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
+  tasks: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/></svg>',
+  check: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>',
+  works: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>',
+};
+
 export function renderLayout(content) {
   const user = store.state.user || {};
   const role = user.role || '';
@@ -60,21 +68,25 @@ export function renderLayout(content) {
   });
 }
 
+function link(icon, href, text) {
+  return `<a class="sidebar__link" href="${href}">${ICONS[icon]}<span>${text}</span></a>`;
+}
+
 function teacherNav() {
   return html`
     <div class="sidebar__section">Преподаватель</div>
-    <a class="sidebar__link" href="#/">Дашборд</a>
-    <a class="sidebar__link" href="#/groups">Группы</a>
-    <a class="sidebar__link" href="#/tasks">Задания</a>
-    <a class="sidebar__link" href="#/submissions">На проверку</a>
+    ${link('dashboard', '#/', 'Дашборд')}
+    ${link('groups', '#/groups', 'Группы')}
+    ${link('tasks', '#/tasks', 'Задания')}
+    ${link('check', '#/submissions', 'На проверку')}
   `;
 }
 
 function studentNav() {
   return html`
     <div class="sidebar__section">Студент</div>
-    <a class="sidebar__link" href="#/">Дашборд</a>
-    <a class="sidebar__link" href="#/tasks">Мои задания</a>
-    <a class="sidebar__link" href="#/submissions">Мои работы</a>
+    ${link('dashboard', '#/', 'Дашборд')}
+    ${link('tasks', '#/tasks', 'Мои задания')}
+    ${link('works', '#/submissions', 'Мои работы')}
   `;
 }

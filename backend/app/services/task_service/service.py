@@ -20,18 +20,21 @@ def _ensure_teacher_owns_task(task: Task, teacher: User) -> None:
 
 
 async def create_task(db: AsyncSession, data: TaskCreate, teacher: User) -> Task:
-    group = await group_crud.get_by_id(db, data.group_id)
-    if not group:
-        raise NotFoundError("Группа не найдена")
-    _ensure_teacher_owns_group(group, teacher)
+    # Проверяем право препода на ВСЕ указанные группы
+    for gid in data.group_ids:
+        group = await group_crud.get_by_id(db, gid)
+        if not group:
+            raise NotFoundError(f"Группа {gid} не найдена")
+        _ensure_teacher_owns_group(group, teacher)
 
     return await crud.create(
         db,
-        group_id=group.id,
         teacher_id=teacher.id,
         title=data.title,
         description=data.description,
         deadline=data.deadline,
+        max_attempts=data.max_attempts,
+        group_ids=data.group_ids,
     )
 
 
@@ -47,7 +50,6 @@ async def list_tasks(db: AsyncSession, user: User, group_id: int | None = None) 
 
     # student
     if group_id is not None:
-        # проверим, что студент в группе
         member = await group_crud.get_member(db, group_id, user.id)
         if not member:
             raise ForbiddenError("Вы не состоите в этой группе")
@@ -65,11 +67,12 @@ async def get_task(db: AsyncSession, task_id: int, user: User) -> Task:
         _ensure_teacher_owns_task(task, user)
         return task
 
-    # student: должен быть в группе задания
-    member = await group_crud.get_member(db, task.group_id, user.id)
-    if not member:
-        raise ForbiddenError("Нет доступа к этому заданию")
-    return task
+    # студент должен быть хотя бы в одной из групп задания
+    task_groups = await crud.group_ids_for_task(db, task.id)
+    for gid in task_groups:
+        if await group_crud.get_member(db, gid, user.id):
+            return task
+    raise ForbiddenError("Нет доступа к этому заданию")
 
 
 async def update_task(

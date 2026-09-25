@@ -25,7 +25,7 @@ export async function renderTasks() {
 
     ${tasks.length === 0
       ? `<div class="card" style="text-align:center;padding:var(--space-10);color:var(--text-muted)">Заданий пока нет</div>`
-      : `<div class="grid grid--3">${tasks.map(t => taskCard(t, isTeacher)).join('')}</div>`}
+      : `<div class="grid grid--3 staggered">${tasks.map(t => taskCard(t, isTeacher)).join('')}</div>`}
   `;
 
   renderLayout(content);
@@ -34,8 +34,11 @@ export async function renderTasks() {
 
 function taskCard(t, isTeacher) {
   const progress = isTeacher
-    ? `<span class="badge">выполнили: ${t.submissions_count ?? 0}/${t.members_count ?? 0}</span>`
+    ? `<span class="badge">сдали: ${t.submissions_count ?? 0}/${t.members_count ?? 0}</span>`
     : '';
+  const attemptsBadge = t.max_attempts > 0
+    ? `<span class="badge">попыток: ${t.max_attempts}</span>`
+    : `<span class="badge">∞ попыток</span>`;
   return html`
     <a class="card card--interactive" href="#/tasks/${t.id}">
       <div class="card__header">
@@ -45,8 +48,9 @@ function taskCard(t, isTeacher) {
       <div class="card__body" style="margin-bottom:var(--space-3)">
         ${escape((t.description || '').slice(0, 120))}${(t.description || '').length > 120 ? '…' : ''}
       </div>
-      <div class="card__footer">
-        <span class="badge">${escape(t.group_name || 'группа не указана')}</span>
+      <div class="card__footer" style="flex-wrap:wrap;gap:var(--space-2)">
+        <span class="badge badge--role">${escape((t.group_names || []).join(', ') || '—')}</span>
+        ${attemptsBadge}
         ${progress}
         <span class="text-muted" style="font-size:var(--fs-sm)">до ${formatDate(t.deadline)}</span>
       </div>
@@ -69,16 +73,30 @@ function openCreateTaskModal() {
             <label class="field__label">Описание</label>
             <textarea class="textarea" name="description" placeholder="Условие задания"></textarea>
           </div>
-          <div class="grid grid--2">
-            <div class="field">
-              <label class="field__label">Группа</label>
-              <select class="select" name="group_id" required>
-                ${groups.map(g => `<option value="${g.id}">${escape(g.name)}</option>`).join('')}
-              </select>
+
+          <div class="field">
+            <label class="field__label">Группы (можно несколько)</label>
+            <div class="groups-picker">
+              ${groups.map(g => `
+                <label class="groups-picker__item">
+                  <input type="checkbox" name="group_id" value="${g.id}" />
+                  <span>${escape(g.name)}</span>
+                  <span class="text-muted" style="font-size:var(--fs-xs)">${g.members_count ?? 0} студ.</span>
+                </label>
+              `).join('')}
             </div>
+            <div class="field__hint">Выберите одну или несколько групп</div>
+          </div>
+
+          <div class="grid grid--2">
             <div class="field">
               <label class="field__label">Дедлайн</label>
               <input class="input" type="datetime-local" name="deadline" required />
+            </div>
+            <div class="field">
+              <label class="field__label">Лимит попыток</label>
+              <input class="input" type="number" name="max_attempts" min="0" value="0" />
+              <div class="field__hint">0 = без ограничений</div>
             </div>
           </div>
         </form>
@@ -93,19 +111,22 @@ function openCreateTaskModal() {
     backdrop.querySelector('[data-cancel]').addEventListener('click', close);
     backdrop.querySelector('[data-submit]').addEventListener('click', async () => {
       const form = document.getElementById('task-form');
-      const data = readForm(form);
-      if (!data.title || !data.deadline || !data.group_id) {
-        toast('Заполните название, группу и дедлайн', 'warning'); return;
-      }
-      const deadline = new Date(data.deadline);
+      const checked = [...form.querySelectorAll('input[name="group_id"]:checked')].map(cb => Number(cb.value));
+      const title = form.elements.title.value.trim();
+      const description = form.elements.description.value;
+      const deadline = new Date(form.elements.deadline.value);
+      const maxAttempts = Number(form.elements.max_attempts.value || 0);
+
+      if (!title) { toast('Укажите название', 'warning'); return; }
+      if (checked.length === 0) { toast('Выберите хотя бы одну группу', 'warning'); return; }
       if (isNaN(deadline.getTime())) { toast('Некорректная дата', 'warning'); return; }
 
       try {
         await api.tasks.create({
-          title: data.title,
-          description: data.description || '',
-          group_id: Number(data.group_id),
+          title, description,
+          group_ids: checked,
           deadline: deadline.toISOString(),
+          max_attempts: maxAttempts,
         });
         toast('Задание создано', 'success');
         close();
@@ -115,4 +136,4 @@ function openCreateTaskModal() {
       }
     });
   }).catch(err => toast(err.message, 'error'));
-}
+} 

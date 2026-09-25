@@ -8,15 +8,26 @@ async def get_by_id(db: AsyncSession, submission_id: int) -> Submission | None:
     return await db.get(Submission, submission_id)
 
 
-async def get_by_task_and_student(
+async def list_by_task_and_student(
     db: AsyncSession, task_id: int, student_id: int
-) -> Submission | None:
+) -> list[Submission]:
+    """Все попытки студента по заданию, последние — в начале."""
     result = await db.execute(
-        select(Submission).where(
-            Submission.task_id == task_id, Submission.student_id == student_id
-        )
+        select(Submission)
+        .where(Submission.task_id == task_id, Submission.student_id == student_id)
+        .order_by(Submission.submitted_at.desc())
     )
-    return result.scalar_one_or_none()
+    return list(result.scalars().all())
+
+
+async def count_by_task_and_student(
+    db: AsyncSession, task_id: int, student_id: int
+) -> int:
+    result = await db.execute(
+        select(Submission)
+        .where(Submission.task_id == task_id, Submission.student_id == student_id)
+    )
+    return len(list(result.scalars().all()))
 
 
 async def create(db: AsyncSession, **data) -> Submission:
