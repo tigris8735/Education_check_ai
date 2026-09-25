@@ -1,29 +1,27 @@
 import { api } from '../api/index.js';
 import { renderLayout } from '../core/layout.js';
-import { html, escape, formatDate, formatDateTime } from '../ui/render.js';
+import { html, escape, formatDateTime, relativeDeadline } from '../ui/render.js';
 import { toast } from '../ui/toast.js';
-import { openModal } from '../ui/modal.js';
 import { readForm } from '../ui/form.js';
+import { openModal } from '../ui/modal.js';
 import { store } from '../core/store.js';
 
 export async function renderTaskDetail({ id }) {
-  renderLayout(`<div class="skeleton" style="height:80px"></div>`);
+  renderLayout(`<div class="skeleton" style="height:120px"></div>`);
   try {
-    const task = await api.tasks.get(id);
+    const [task, submissions] = await Promise.all([
+      api.tasks.get(id),
+      api.submissions.list({ task_id: id }).catch(() => []),
+    ]);
+
     const isTeacher = store.state.user?.role === 'teacher';
-
-    let submissions = [];
-    if (isTeacher) {
-      submissions = await api.submissions.listByTask(id).catch(() => []);
-    } else {
-      submissions = await api.submissions.list({ task_id: id }).catch(() => []);
-    }
-
-    const mySubmission = submissions[0];
+    const me = store.state.user;
+    const own = !isTeacher ? submissions.find(s => s.student_id === me?.id) : null;
+    const canEdit = own && !['checking', 'checked', 'reviewed'].includes(own.status);
 
     const content = html`
       <div class="breadcrumbs">
-        <a href="#/tasks">Задания</a>
+        <a href="#/">Главная</a>
         <span class="breadcrumbs__sep">/</span>
         <span>${escape(task.title)}</span>
       </div>
@@ -31,151 +29,66 @@ export async function renderTaskDetail({ id }) {
       <div class="page-header">
         <div class="page-header__title">
           <h1>${escape(task.title)}</h1>
-          <p class="page-header__subtitle">Дедлайн: ${formatDateTime(task.deadline)}</p>
+          <p class="page-header__subtitle">
+            Группа: ${escape(task.group_name || '—')} · Дедлайн: ${formatDateTime(task.deadline)}
+            ${task.is_expired ? ' · просрочено' : ' · ' + relativeDeadline(task.deadline)}
+          </p>
         </div>
         <div class="page-header__actions">
-          ${isTeacher ? `
-            <button class="btn btn--secondary" id="edit-task">Редактировать</button>
-            <button class="btn btn--danger" id="delete-task">Удалить</button>
-          ` : `
-            <button class="btn btn--primary" id="submit-work">
-              ${mySubmission ? 'Изменить работу' : 'Загрузить работу'}
-            </button>
-          `}
+          ${!isTeacher && !own && !task.is_expired
+            ? `<button class="btn btn--primary" id="submit-btn">📤 Сдать работу</button>` : ''}
+          ${canEdit
+            ? `<button class="btn btn--secondary" id="edit-btn">✏️ Редактировать</button>` : ''}
+          ${own
+            ? `<a class="btn btn--ghost" href="#/submissions/${own.id}">Моя работа</a>` : ''}
         </div>
       </div>
 
-      <div class="grid grid--2" style="align-items:start">
-        <div class="card">
-          <h4 style="margin-bottom: var(--space-3)">Описание и критерии</h4>
-          <div class="md" style="white-space:pre-wrap">${escape(task.description || '—')}</div>
-        </div>
-
-        <div class="card">
-          <h4 style="margin-bottom: var(--space-3)">${isTeacher ? 'Сдачи студентов' : 'Моя работа'}</h4>
-          ${isTeacher
-            ? (submissions.length === 0
-              ? `<p class="text-muted">Сдач пока нет.</p>`
-              : `<div class="stack stack--sm">${submissions.map(s => `
-                <a class="row row--between" style="padding:8px;border:1px solid var(--border);border-radius:8px" href="#/submissions/${s.id}">
-                  <span>Работа #${String(s.id).slice(0, 8)}</span>
-                  <span class="badge badge--${statusClass(s.status)}">${statusLabel(s.status)}</span>
-                </a>
-              `).join('')}</div>`)
-            : (mySubmission
-              ? `<a class="btn btn--secondary btn--block" href="#/submissions/${mySubmission.id}">Открыть мою работу</a>`
-              : `<p class="text-muted">Вы ещё не загрузили работу.</p>`)}
-        </div>
+      <div class="card" style="margin-bottom: var(--space-6)">
+        <h4 style="margin-bottom: var(--space-3)">Условие задания</h4>
+        <div class="md">${escape(task.description || '—')}</div>
       </div>
+
+      ${isTeacher ? renderTeacherSubmissions(submissions) : ''}
     `;
 
     renderLayout(content);
 
-    document.getElementById('submit-work')?.addEventListener('click', () => openSubmitModal(task, mySubmission));
-    document.getElementById('edit-task')?.addEventListener('click', () => openEditTaskModal(task));
-    document.getElementById('delete-task')?.addEventListener('click', async () => {
-      if (!confirm('Удалить задание? Это действие необратимо.')) return;
-      try {
-        await api.tasks.remove(task.id);
-        toast('Задание удалено', 'success');
-        location.hash = '#/tasks';
-      } catch (err) {
-        toast(err.message, 'error');
-      }
-    });
+    document.getElementById('submit-btn')
+      ?.addEventListener('click', () => openSubmitModal(task, null));
+    document.getElementById('edit-btn')
+      ?.addEventListener('click', () => openSubmitModal(task, own));
   } catch (err) {
     toast(err.message, 'error');
     renderLayout(`<div class="empty"><div class="empty__title">Задание не найдено</div></div>`);
   }
 }
 
-// ⬇️ ИСПРАВЛЕНО: нижний регистр
-function statusClass(s) {
-  return ({ draft: 'draft', submitted: 'submitted', checking: 'checking', checked: 'checked', failed: 'failed' })[s] || 'draft';
-}
-
-function statusLabel(s) {
-  return ({ draft: 'Черновик', submitted: 'Сдано', checking: 'AI проверяет', checked: 'AI проверено', failed: 'Ошибка AI' })[s] || s;
-}
-
-function openEditTaskModal(task) {
-  // Превращаем ISO в datetime-local формат
-  const dlValue = task.deadline ? new Date(task.deadline).toISOString().slice(0, 16) : '';
-
-  const { close } = openModal({
-    title: 'Редактировать задание',
-    size: 'lg',
-    body: `
-      <form id="edit-task-form" class="stack">
-        <div class="field">
-          <label class="field__label">Название</label>
-          <input class="input" name="title" required value="${escape(task.title || '')}" />
-        </div>
-        <div class="field">
-          <label class="field__label">Описание</label>
-          <textarea class="textarea" name="description" rows="6">${escape(task.description || '')}</textarea>
-        </div>
-        <div class="field">
-          <label class="field__label">Дедлайн</label>
-          <input class="input" type="datetime-local" name="deadline" value="${dlValue}" />
-        </div>
-      </form>
-    `,
-    footer: `
-      <button class="btn btn--ghost" data-cancel>Отмена</button>
-      <button class="btn btn--primary" data-submit>Сохранить</button>
-    `,
-  });
-
-  const backdrop = document.querySelector('.modal-backdrop');
-  backdrop.querySelector('[data-cancel]').addEventListener('click', close);
-  backdrop.querySelector('[data-submit]').addEventListener('click', async () => {
-    const form = document.getElementById('submit-form') || document.getElementById('submission-form');
-    const data = readForm(form);
-    if (!data.student_comment && !file) { toast('Добавьте текст или файл', 'warning'); return; }
-
-    const btn = backdrop.querySelector('[data-submit]');
-    btn.disabled = true;
-    try {
-      let submissionId;
-      if (existing) {
-        await api.submissions.update(existing.id, { student_comment: data.student_comment });
-        submissionId = existing.id;
-      } else {
-        const created = await api.submissions.create({
-          task_id: task.id,
-          student_comment: data.student_comment,
-        });
-        submissionId = created?.id;
-      }
-
-      if (file && submissionId) {
-        // 1) presigned URL
-        const presign = await api.files.presign({
-          original_name: file.name,
-          content_type: file.type || 'application/octet-stream',
-          size: file.size,
-        });
-        // 2) прямой PUT в S3/R2 (обычный fetch, без базового URL и токенов!)
-        const putRes = await fetch(presign.upload_url, {
-          method: 'PUT',
-          headers: { 'Content-Type': file.type || 'application/octet-stream' },
-          body: file,
-        });
-        if (!putRes.ok) throw new Error('Хранилище отклонило файл (PUT ' + putRes.status + ')');
-        // 3) подтверждение
-        await api.files.confirm(presign.file_id, submissionId);
-      }
-
-      toast('Работа отправлена', 'success');
-      close();
-      renderTaskDetail({ id: task.id });
-    } catch (err) {
-      toast(err.message, 'error');
-    } finally {
-      btn.disabled = false;
-    }
-  });
+function renderTeacherSubmissions(submissions) {
+  if (!submissions.length) {
+    return `<div class="card" style="text-align:center;color:var(--text-muted)">Пока нет сдач по этому заданию</div>`;
+  }
+  return html`
+    <h3 style="margin-bottom: var(--space-3)">Сдачи студентов (${submissions.length})</h3>
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr><th>ID</th><th>Статус</th><th>AI</th><th>Итог</th><th>Дата</th></tr>
+        </thead>
+        <tbody>
+          ${submissions.map(s => `
+            <tr onclick="location.hash='#/submissions/${s.id}'" style="cursor:pointer">
+              <td class="text-mono">#${s.id}</td>
+              <td><span class="badge badge--${statusClass(s.status)}">${statusLabel(s.status)}</span></td>
+              <td>${s.ai_score ?? '—'}</td>
+              <td><strong>${s.final_score ?? '—'}</strong></td>
+              <td class="text-muted">${formatDateTime(s.submitted_at)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function openSubmitModal(task, existing) {
@@ -186,7 +99,8 @@ function openSubmitModal(task, existing) {
       <form id="submission-form" class="stack">
         <div class="field">
           <label class="field__label">Текст работы</label>
-          <textarea class="textarea" name="student_comment" rows="10" placeholder="Вставьте текст работы" required>${escape(existing?.student_comment || '')}</textarea>
+          <textarea class="textarea" name="student_comment" rows="10"
+            placeholder="Вставьте текст работы">${escape(existing?.student_comment || '')}</textarea>
         </div>
         <div class="field">
           <label class="field__label">Файл (опционально)</label>
@@ -217,10 +131,12 @@ function openSubmitModal(task, existing) {
   dz.addEventListener('dragleave', () => dz.classList.remove('is-over'));
   dz.addEventListener('drop', (e) => {
     e.preventDefault(); dz.classList.remove('is-over');
-    file = e.dataTransfer.files[0]; if (file) fileName.textContent = file.name;
+    file = e.dataTransfer.files[0];
+    if (file) fileName.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
   });
   fileInput.addEventListener('change', () => {
-    file = fileInput.files[0]; if (file) fileName.textContent = file.name;
+    file = fileInput.files[0];
+    if (file) fileName.textContent = `📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
   });
 
   backdrop.querySelector('[data-cancel]').addEventListener('click', close);
@@ -229,21 +145,59 @@ function openSubmitModal(task, existing) {
     const data = readForm(form);
     if (!data.student_comment && !file) { toast('Добавьте текст или файл', 'warning'); return; }
 
+    const btn = backdrop.querySelector('[data-submit]');
+    btn.disabled = true;
+    btn.textContent = '⏳ Отправка...';
+
     try {
+      let submissionId;
       if (existing) {
         await api.submissions.update(existing.id, { student_comment: data.student_comment });
+        submissionId = existing.id;
       } else {
-        const payload = {
+        const created = await api.submissions.create({
           task_id: task.id,
           student_comment: data.student_comment,
-        };
-        await api.submissions.create(payload);
+        });
+        submissionId = created?.id;
       }
+
+      if (file && submissionId) {
+        btn.textContent = '⏳ Загрузка файла...';
+        const presign = await api.files.presign({
+          original_name: file.name,
+          content_type: file.type || 'application/octet-stream',
+          size: file.size,
+        });
+
+        const putRes = await fetch(presign.upload_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file,
+        });
+        if (!putRes.ok) {
+          throw new Error(`Хранилище отклонило файл (HTTP ${putRes.status}). Проверьте CORS бакета.`);
+        }
+        await api.files.confirm(presign.file_id, submissionId);
+      }
+
       toast('Работа отправлена', 'success');
       close();
       renderTaskDetail({ id: task.id });
     } catch (err) {
       toast(err.message, 'error');
+      btn.disabled = false;
+      btn.textContent = existing ? 'Сохранить' : 'Отправить';
     }
   });
+}
+
+function statusClass(s) {
+  return ({ draft: 'draft', submitted: 'submitted', checking: 'checking',
+            checked: 'checked', reviewed: 'reviewed', failed: 'failed' })[s] || 'draft';
+}
+
+function statusLabel(s) {
+  return ({ draft: 'Черновик', submitted: 'Сдано', checking: 'AI проверяет',
+            checked: 'AI проверено', reviewed: 'Оценено', failed: 'Ошибка' })[s] || s;
 }

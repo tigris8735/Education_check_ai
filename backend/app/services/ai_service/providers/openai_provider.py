@@ -1,10 +1,13 @@
 import json
+import logging
 
 from openai import AsyncOpenAI
 
 from app.core.config import settings
 from app.services.ai_service.prompts import SYSTEM_PROMPT, build_user_prompt
 from app.services.ai_service.providers.base import AIProvider, AiResult
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAIProvider(AIProvider):
@@ -39,11 +42,23 @@ class OpenAIProvider(AIProvider):
             ],
             response_format={"type": "json_object"},
             temperature=0.2,
+            max_tokens=1500,
         )
 
         content = response.choices[0].message.content or "{}"
-        data = json.loads(content)
-        verdict = str(data.get("verdict","incorrect")).strip().lower()
-        score = 100 if verdict == "correct" else 0
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            logger.warning("OpenAI вернул не-JSON: %s", content[:500])
+            return AiResult(
+                score=50,
+                feedback="AI вернул некорректный формат ответа, требуется ручная проверка.",
+            )
+
+        try:
+            score = int(data.get("score", 50))
+        except (TypeError, ValueError):
+            score = 50
+        score = max(0, min(100, score))
         feedback = str(data.get("feedback", "")).strip() or "—"
         return AiResult(score=score, feedback=feedback)

@@ -1,8 +1,6 @@
 import { api } from '../api/index.js';
 import { renderLayout } from '../core/layout.js';
 import { html, formatDateTime } from '../ui/render.js';
-import { toast } from '../ui/toast.js';
-import { store } from '../core/store.js';
 
 export async function renderSubmissions() {
   renderLayout(`<div class="skeleton" style="height:80px"></div>`);
@@ -22,22 +20,16 @@ export async function renderSubmissions() {
         <div class="table-wrapper">
           <table class="table">
             <thead>
-              <tr>
-                <th>ID</th>
-                <th>Статус</th>
-                <th>AI-оценка</th>
-                <th>Итог</th>
-                <th>Дата</th>
-              </tr>
+              <tr><th>Задание</th><th>Статус</th><th>AI-оценка</th><th>Итог</th><th>Дата</th></tr>
             </thead>
             <tbody>
               ${items.map(s => `
                 <tr onclick="location.hash='#/submissions/${s.id}'" style="cursor:pointer">
-                  <td class="text-mono">${String(s.id).slice(0, 8)}</td>
+                  <td>#${s.task_id}</td>
                   <td><span class="badge badge--${statusClass(s.status)}">${statusLabel(s.status)}</span></td>
                   <td>${s.ai_score ?? '—'}</td>
                   <td><strong>${s.final_score ?? '—'}</strong></td>
-                  <td class="text-muted">${formatDateTime(s.created_at)}</td>
+                  <td class="text-muted">${formatDateTime(s.submitted_at || s.created_at)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -49,9 +41,11 @@ export async function renderSubmissions() {
 }
 
 function statusClass(s) {
-  return ({ draft: 'draft', submitted: 'submitted', checking: 'checking', checked: 'checked', failed: 'failed' })[s] || 'draft';
+  return ({ draft: 'draft', submitted: 'submitted', checking: 'checking',
+            checked: 'checked', reviewed: 'reviewed', failed: 'failed' })[s] || 'draft';
 }
 
 function statusLabel(s) {
-  return ({ draft: 'Черновик', submitted: 'Сдано', checking: 'AI проверяет', checked: 'AI проверено', failed: 'Ошибка AI' })[s] || s;
+  return ({ draft: 'Черновик', submitted: 'Сдано', checking: 'AI проверяет',
+            checked: 'AI проверено', reviewed: 'Оценено преподом', failed: 'Ошибка AI' })[s] || s;
 }

@@ -7,20 +7,18 @@ export const api = {
     me:       ()        => request('/api/v1/users/me'),
   },
   users: {
-    list:   ()     => request('/api/v1/users'),
-    get:    (id)   => request(`/api/v1/users/${id}`),
+    list: ()   => request('/api/v1/users'),
+    get:  (id) => request(`/api/v1/users/${id}`),
   },
   groups: {
-    list:    ()           => request('/api/v1/groups'),
-    get:     (id)         => request(`/api/v1/groups/${id}`),
-    create:  (payload)    => request('/api/v1/groups', { method: 'POST', body: payload }),
-    update:  (id, p)      => request(`/api/v1/groups/${id}`, { method: 'PATCH', body: p }),
-    remove:  (id)         => request(`/api/v1/groups/${id}`, { method: 'DELETE' }),
-    addMember: (id, payload) => request(`/api/v1/groups/${id}/members`, {
-        method: 'POST',
-        body: payload,  // ← теперь передаём весь объект целиком
-    }),
-    removeMember: (id, sid) => request(`/api/v1/groups/${id}/members/${sid}`, { method: 'DELETE' }),
+    list:    ()        => request('/api/v1/groups'),
+    get:     (id)      => request(`/api/v1/groups/${id}`),
+    create:  (payload) => request('/api/v1/groups', { method: 'POST', body: payload }),
+    update:  (id, p)   => request(`/api/v1/groups/${id}`, { method: 'PATCH', body: p }),
+    remove:  (id)      => request(`/api/v1/groups/${id}`, { method: 'DELETE' }),
+    addMember:    (id, payload) => request(`/api/v1/groups/${id}/members`, { method: 'POST', body: payload }),
+    removeMember: (id, sid)     => request(`/api/v1/groups/${id}/members/${sid}`, { method: 'DELETE' }),
+    search: (name) => request(`/api/v1/groups/search?name=${encodeURIComponent(name)}`),
   },
   tasks: {
     list:    ()        => request('/api/v1/tasks'),
@@ -31,21 +29,28 @@ export const api = {
     listByGroup: (gid) => request(`/api/v1/tasks?group_id=${gid}`),
   },
   submissions: {
-    list:    (params = {}) => {
+    list: (params = {}) => {
       const q = new URLSearchParams(params).toString();
       return request(`/api/v1/submissions${q ? '?' + q : ''}`);
     },
-    get:     (id)         => request(`/api/v1/submissions/${id}`),
-    create:  (payload)    => request('/api/v1/submissions', { method: 'POST', body: payload }),
-    update:  (id, p)      => request(`/api/v1/submissions/${id}`, { method: 'PATCH', body: p }),
-    review:  (id, payload) => request(`/api/v1/submissions/${id}/review`, { method: 'POST', body: payload }),
-    triggerAI: (id)       => request(`/api/v1/submissions/${id}/check`, { method: 'POST' }),
-    listByTask: (tid)     => request(`/api/v1/submissions?task_id=${tid}`),
+    get:    (id)      => request(`/api/v1/submissions/${id}`),
+    create: (payload) => request('/api/v1/submissions', { method: 'POST', body: payload }),
+    update: (id, p)   => request(`/api/v1/submissions/${id}`, { method: 'PATCH', body: p }),
+    remove: (id)      => request(`/api/v1/submissions/${id}`, { method: 'DELETE' }),
+    triggerAI: (id, payload = { force: true }) =>
+      request(`/api/v1/submissions/${id}/check`, { method: 'POST', body: payload }),
+    updateFinalScore: (id, payload) =>
+      request(`/api/v1/submissions/${id}/final-score`, { method: 'POST', body: payload }),
+    addComment: (id, text) =>
+      request(`/api/v1/submissions/${id}/comments`, { method: 'POST', body: { text } }),
+    listByTask: (tid) => request(`/api/v1/submissions?task_id=${tid}`),
   },
   files: {
     presign: (p) => request('/api/v1/files/presign-upload', { method: 'POST', body: p }),
     confirm: (id, submissionId) =>
-        request(`/api/v1/files/${id}/confirm`, { method: 'POST', body: { submission_id: submissionId } }),
+      request(`/api/v1/files/${id}/confirm`, { method: 'POST', body: { submission_id: submissionId } }),
     downloadUrl: (id) => request(`/api/v1/files/${id}/download-url`),
+    list:   ()      => request('/api/v1/files'),
+    remove: (id)    => request(`/api/v1/files/${id}`, { method: 'DELETE' }),
   },
 };

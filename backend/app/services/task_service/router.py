@@ -7,6 +7,7 @@ from app.core.database import get_db
 from app.services.group_service import crud as group_crud
 from app.services.task_service import crud as task_crud
 from app.services.task_service import service as task_service
+from app.services.task_service.models import Task
 from app.services.task_service.schemas import TaskCreate, TaskDetail, TaskOut, TaskUpdate
 from app.services.user_service.models import User
 from app.shared.permissions import get_current_user, require_teacher
@@ -14,16 +15,16 @@ from app.shared.permissions import get_current_user, require_teacher
 router = APIRouter()
 
 
-async def _to_task_out(db: AsyncSession, task) -> TaskOut:
+async def _to_task_out(db: AsyncSession, t: Task) -> TaskOut:
     return TaskOut(
-        id=task.id,
-        group_id=task.group_id,
-        teacher_id=task.teacher_id,
-        title=task.title,
-        description=task.description,
-        deadline=task.deadline,
-        created_at=task.created_at,
-        is_expired=task_crud.is_expired(task),
+        id=t.id,
+        group_id=t.group_id,
+        teacher_id=t.teacher_id,
+        title=t.title,
+        description=t.description,
+        deadline=t.deadline,
+        created_at=t.created_at,
+        is_expired=task_crud.is_expired(t),
     )
 
 

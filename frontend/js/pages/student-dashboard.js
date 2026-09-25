@@ -11,6 +11,10 @@ export async function renderStudentDashboard() {
       api.submissions.list().catch(() => []),
     ]);
 
+    const checkedCount = submissions.filter(
+      s => s.status === 'checked' || s.status === 'reviewed'
+    ).length;
+
     const content = html`
       <div class="page-header">
         <div class="page-header__title">
@@ -29,8 +33,8 @@ export async function renderStudentDashboard() {
           <div class="stat__value">${submissions.length}</div>
         </div>
         <div class="stat">
-          <div class="stat__label">Проверено AI</div>
-          <div class="stat__value">${submissions.filter(s => s.status === 'checked' || s.status === 'checked').length}</div>
+          <div class="stat__label">Проверено</div>
+          <div class="stat__value">${checkedCount}</div>
         </div>
       </div>
 

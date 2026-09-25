@@ -7,12 +7,12 @@ class Role(str, Enum):
 
 
 class SubmissionStatus(str, Enum):
-    DRAFT = "draft"                # создано, но не отправлено
-    SUBMITTED = "submitted"        # сдано студентом
-    CHECKING = "checking"          # AI проверяет
-    CHECKED = "checked" 
-    REVIEWED = "reviewed"           # AI + препод завершили
-    FAILED = "failed"              # ошибка при проверке
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
+    CHECKING = "checking"
+    CHECKED = "checked"
+    REVIEWED = "reviewed"
+    FAILED = "failed"
 
 
 class AiCheckStatus(str, Enum):
@@ -21,6 +21,7 @@ class AiCheckStatus(str, Enum):
     DONE = "done"
     ERROR = "error"
 
+
 class FileStatus(str, Enum):
-    PENDING = "pending"    # presigned URL выдан, но файл ещё не загружен в S3
-    UPLOADED = "uploaded"  # файл подтверждён, объект в S3 существует
+    PENDING = "pending"
+    UPLOADED = "uploaded"

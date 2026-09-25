@@ -1,9 +1,10 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator, field_validator
 
 from app.services.user_service.schemas import UserOut
 from app.shared.validators import validate_group_name
+
 
 class GroupCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=20)
@@ -35,25 +36,18 @@ class GroupOut(BaseModel):
 class GroupDetail(GroupOut):
     members: list[UserOut] = []
 
+
 class AddMemberIn(BaseModel):
-    """Добавление студента в группу.
-    Можно указать user_id (старый способ) ИЛИ email (новый способ).
-    Если email не найден и указан password — студент будет создан автоматически.
-    """
+    """Добавить студента: по user_id ИЛИ по email.
+    Если email не найден и заполнены имя/фамилия/пароль — аккаунт создастся."""
     user_id: int | None = None
     email: EmailStr | None = None
-    # Поля для создания нового студента, если его нет
     first_name: str | None = Field(None, min_length=1, max_length=100)
     last_name: str | None = Field(None, min_length=1, max_length=100)
     password: str | None = Field(None, min_length=8)
 
     @model_validator(mode="after")
-    def _check_fields(self) -> "AddMemberIn":
+    def _check(self) -> "AddMemberIn":
         if not self.user_id and not self.email:
-            raise ValueError("Нужно указать user_id или email студента")
-        if self.email and not self.user_id:
-            # Если указали email — для создания нового нужны имя, фамилия и пароль
-            if not self.first_name or not self.last_name or not self.password:
-                # Если пользователь уже существует — это не ошибка, проверим в сервисе
-                pass
+            raise ValueError("Укажите user_id или email студента")
         return self

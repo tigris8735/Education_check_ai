@@ -14,13 +14,13 @@ export async function renderSubmissionDetail({ id }) {
       <div class="breadcrumbs">
         <a href="#/">Главная</a>
         <span class="breadcrumbs__sep">/</span>
-        <span>Работа #${String(s.id).slice(0, 8)}</span>
+        <span>Работа #${s.id}</span>
       </div>
 
       <div class="page-header">
         <div class="page-header__title">
           <h1>Работа студента</h1>
-          <p class="page-header__subtitle">Загружена ${formatDateTime(s.created_at)}</p>
+          <p class="page-header__subtitle">Сдана ${formatDateTime(s.submitted_at || s.created_at)}</p>
         </div>
         <div class="page-header__actions">
           <span class="badge badge--${statusClass(s.status)}">${statusLabel(s.status)}</span>
@@ -31,15 +31,58 @@ export async function renderSubmissionDetail({ id }) {
       <div class="ai-review" style="margin-bottom: var(--space-6)">
         <div class="ai-review__panel">
           <h4>Текст работы</h4>
-          <div class="submission-text" style="white-space:pre-wrap">${escape(s.student_comment || '—')}</div>
+          <div class="submission-text">${escape(s.student_comment || '—')}</div>
         </div>
 
         <div class="ai-review__panel ai-review__panel--ai">
-          <h4>AI-разбор ${s.ai_score != null ? `<span class="score score--${scoreClass(s.ai_score)}"> <span class="score__value">${s.ai_score}</span><span class="score__max">/100</span></span>` : ''}</h4>
+          <h4>AI-разбор ${s.ai_score != null
+            ? `<span class="score score--${scoreClass(s.ai_score)}">
+                 <span class="score__value">${s.ai_score}</span><span class="score__max">/100</span>
+               </span>` : ''}</h4>
           ${s.ai_feedback
             ? `<div class="md">${renderSafeMarkdown(s.ai_feedback)}</div>`
             : `<p class="text-muted">AI-проверка ещё не выполнена.</p>`}
         </div>
+      </div>
+
+      ${(s.files?.length ?? 0) > 0 ? `
+        <div class="card" style="margin-bottom: var(--space-6)">
+          <h4 style="margin-bottom: var(--space-3)">Файлы работы (${s.files.length})</h4>
+          <div class="stack stack--sm">
+            ${s.files.map(f => `
+              <div class="row row--between">
+                <div>📄 ${escape(f.original_name)}
+                  <span class="text-muted" style="font-size:var(--fs-sm)">
+                    (${(f.size / 1024).toFixed(1)} KB)
+                  </span>
+                </div>
+                <button class="btn btn--secondary btn--sm" data-download="${f.id}">Скачать</button>
+              </div>
+            `).join('')}
+          </div>
+        </div>` : ''}
+
+      ${(s.comments?.length ?? 0) > 0 ? `
+        <div class="card" style="margin-bottom: var(--space-6)">
+          <h4 style="margin-bottom: var(--space-3)">Комментарии (${s.comments.length})</h4>
+          <div class="stack stack--sm">
+            ${s.comments.map(c => `
+              <div style="padding:8px;border-bottom:1px solid var(--border)">
+                <div class="text-muted" style="font-size:var(--fs-sm)">
+                  Пользователь #${c.author_id} · ${formatDateTime(c.created_at)}
+                </div>
+                <div>${escape(c.text)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>` : ''}
+
+      <div class="card" style="margin-bottom: var(--space-6)">
+        <h4 style="margin-bottom: var(--space-3)">Добавить комментарий</h4>
+        <form id="comment-form" class="stack">
+          <textarea class="textarea" name="text" rows="3" placeholder="Ваш комментарий" required></textarea>
+          <div><button class="btn btn--secondary btn--sm" type="submit">Отправить</button></div>
+        </form>
       </div>
 
       ${isTeacher ? renderTeacherReview(s) : ''}
@@ -47,21 +90,43 @@ export async function renderSubmissionDetail({ id }) {
 
     renderLayout(content);
 
+    // Скачивание файлов
+    document.querySelectorAll('[data-download]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        try {
+          const { url } = await api.files.downloadUrl(btn.getAttribute('data-download'));
+          window.open(url, '_blank');
+        } catch (e) { toast(e.message, 'error'); }
+      });
+    });
+
+    // Комментарий
+    document.getElementById('comment-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = e.target.elements.text.value.trim();
+      if (!text) return;
+      try {
+        await api.submissions.addComment(id, text);
+        toast('Комментарий добавлен', 'success');
+        renderSubmissionDetail({ id });
+      } catch (err) { toast(err.message, 'error'); }
+    });
+
+    // AI-проверка
     document.getElementById('run-ai')?.addEventListener('click', async () => {
       const btn = document.getElementById('run-ai');
       btn.disabled = true;
       btn.textContent = '⏳ Проверка выполняется...';
       try {
         await api.submissions.triggerAI(id, { force: true });
-        toast('AI-проверка запущена, ожидайте...', 'info');
+        toast('AI-проверка запущена...', 'info');
 
-        // Поллим статус пока не завершится
         let attempts = 0;
         const poll = setInterval(async () => {
           attempts++;
           try {
             const fresh = await api.submissions.get(id);
-            if (fresh.ai_status === 'done' || fresh.ai_status === 'error' || attempts > 30) {
+            if (['done', 'error'].includes(fresh.ai_status) || attempts > 30) {
               clearInterval(poll);
               renderSubmissionDetail({ id });
             }
@@ -74,6 +139,7 @@ export async function renderSubmissionDetail({ id }) {
       }
     });
 
+    // Итоговая оценка
     document.getElementById('review-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const score = Number(e.target.elements.score.value);
@@ -82,9 +148,7 @@ export async function renderSubmissionDetail({ id }) {
         await api.submissions.updateFinalScore(id, { final_score: score, teacher_feedback: feedback });
         toast('Итоговая оценка сохранена', 'success');
         renderSubmissionDetail({ id });
-      } catch (err) {
-        toast(err.message, 'error');
-      }
+      } catch (err) { toast(err.message, 'error'); }
     });
   } catch (err) {
     toast(err.message, 'error');
@@ -99,26 +163,28 @@ function renderTeacherReview(s) {
       <form id="review-form" class="stack">
         <div class="field" style="max-width:200px">
           <label class="field__label">Оценка (0–100)</label>
-          <input class="input" type="number" name="score" min="0" max="100" value="${s.final_score ?? s.ai_score ?? ''}" required />
+          <input class="input" type="number" name="score" min="0" max="100"
+                 value="${s.final_score ?? s.ai_score ?? ''}" required />
         </div>
         <div class="field">
           <label class="field__label">Комментарий</label>
-          <textarea class="textarea" name="feedback" rows="4" placeholder="Ваши замечания студенту">${escape(s.teacher_feedback || '')}</textarea>
+          <textarea class="textarea" name="feedback" rows="4"
+                    placeholder="Ваши замечания студенту">${escape(s.teacher_feedback || '')}</textarea>
         </div>
-        <div>
-          <button class="btn btn--primary" type="submit">Сохранить оценку</button>
-        </div>
+        <div><button class="btn btn--primary" type="submit">Сохранить оценку</button></div>
       </form>
     </div>
   `;
 }
 
 function statusClass(s) {
-  return ({ draft: 'draft', submitted: 'submitted', checking: 'checking', checked: 'checked', failed: 'failed' })[s] || 'draft';
+  return ({ draft: 'draft', submitted: 'submitted', checking: 'checking',
+            checked: 'checked', reviewed: 'reviewed', failed: 'failed' })[s] || 'draft';
 }
 
 function statusLabel(s) {
-  return ({ draft: 'Черновик', submitted: 'Сдано', checking: 'AI проверяет', checked: 'AI проверено', failed: 'Ошибка AI' })[s] || s;
+  return ({ draft: 'Черновик', submitted: 'Сдано', checking: 'AI проверяет',
+            checked: 'AI проверено', reviewed: 'Оценено преподом', failed: 'Ошибка AI' })[s] || s;
 }
 
 function scoreClass(v) {

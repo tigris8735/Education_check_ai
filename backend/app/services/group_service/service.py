@@ -3,19 +3,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ConflictError, ForbiddenError, NotFoundError
 from app.services.group_service import crud
 from app.services.group_service.models import Group
-from app.services.group_service.schemas import GroupCreate, GroupDetail, GroupOut
+from app.services.group_service.schemas import AddMemberIn, GroupCreate, GroupDetail
+from app.services.user_service import crud as user_crud
 from app.services.user_service.models import User
+from app.services.user_service.schemas import UserCreate
+from app.services.user_service.service import register_user
 from app.shared.enums import Role
 
-
-# ---------- Хелперы прав ----------
 
 def _ensure_teacher_owns(group: Group, teacher: User) -> None:
     if group.teacher_id != teacher.id:
         raise ForbiddenError("Вы не являетесь преподавателем этой группы")
 
-
-# ---------- Операции ----------
 
 async def create_group(db: AsyncSession, data: GroupCreate, user: User) -> Group:
     existing = await crud.get_by_name(db, data.name)
@@ -23,19 +22,11 @@ async def create_group(db: AsyncSession, data: GroupCreate, user: User) -> Group
         raise ConflictError(f"Группа {data.name} уже существует")
 
     teacher_id = user.id if user.role == Role.TEACHER else None
-
     group = await crud.create(
-        db,
-        name=data.name,
-        teacher_id=teacher_id,
-        created_by_id=user.id,
+        db, name=data.name, teacher_id=teacher_id, created_by_id=user.id
     )
-
-    # Преподавателя тоже добавляем в участники? Нет — препод не «член», он «владелец».
-    # Студент, создавший группу, сразу становится её участником.
     if user.role == Role.STUDENT:
         await crud.add_member(db, group.id, user.id)
-
     return group
 
 
@@ -50,7 +41,6 @@ async def get_group_detail(db: AsyncSession, group_id: int, user: User) -> Group
     if not group:
         raise NotFoundError("Группа не найдена")
 
-    # доступ: препод-владелец ИЛИ участник
     is_owner = group.teacher_id == user.id
     member = await crud.get_member(db, group_id, user.id)
     if not is_owner and not member:
@@ -77,7 +67,6 @@ async def delete_group(db: AsyncSession, group_id: int, teacher: User) -> None:
 
 
 async def claim_group(db: AsyncSession, group_id: int, teacher: User) -> Group:
-    """Преподаватель «забирает» группу, созданную студентом."""
     group = await crud.get_by_id(db, group_id)
     if not group:
         raise NotFoundError("Группа не найдена")
@@ -86,46 +75,40 @@ async def claim_group(db: AsyncSession, group_id: int, teacher: User) -> Group:
     return await crud.claim(db, group, teacher.id)
 
 
-async def add_member(db: AsyncSession, group_id: int, payload, teacher: User) -> None:
-    from app.services.user_service import crud as user_crud
-    from app.services.user_service.models import User
-    from app.services.user_service.schemas import UserCreate
-    from app.services.user_service.service import register_user
-
+async def add_member(
+    db: AsyncSession, group_id: int, payload: AddMemberIn, teacher: User
+) -> None:
     group = await crud.get_by_id(db, group_id)
     if not group:
         raise NotFoundError("Группа не найдена")
     _ensure_teacher_owns(group, teacher)
 
-    # --- Поиск пользователя ---
     target: User | None = None
-
     if payload.user_id:
         target = await user_crud.get_by_id(db, payload.user_id)
     elif payload.email:
         target = await user_crud.get_by_email(db, payload.email)
 
-    # Если не нашли — пытаемся создать
+    # Не нашли — создаём нового студента, если даны все поля
     if target is None:
-        if not payload.email or not payload.first_name or not payload.last_name or not payload.password:
+        if not (payload.email and payload.first_name and payload.last_name and payload.password):
             raise NotFoundError(
                 "Студент с таким email не найден. "
-                "Укажите имя, фамилию и пароль, чтобы создать новый аккаунт."
+                "Заполните имя, фамилию и пароль, чтобы создать аккаунт."
             )
-        # Создаём нового студента
-        new_user_data = UserCreate(
-            first_name=payload.first_name,
-            last_name=payload.last_name,
-            email=payload.email,
-            password=payload.password,
-            role=Role.STUDENT,
+        target = await register_user(
+            db,
+            UserCreate(
+                first_name=payload.first_name,
+                last_name=payload.last_name,
+                email=payload.email,
+                password=payload.password,
+                role=Role.STUDENT,
+            ),
         )
-        target = await register_user(db, new_user_data)
 
-    # Проверки
     if target.role != Role.STUDENT:
         raise ConflictError("Добавлять в группу можно только студентов")
-
     if await crud.get_member(db, group_id, target.id):
         raise ConflictError("Студент уже состоит в этой группе")
 
@@ -141,21 +124,17 @@ async def remove_member(db: AsyncSession, group_id: int, user_id: int, teacher: 
     member = await crud.get_member(db, group_id, user_id)
     if not member:
         raise NotFoundError("Пользователь не состоит в группе")
-
     await crud.remove_member(db, member)
 
 
 async def join_group(db: AsyncSession, group_id: int, user: User) -> None:
     if user.role != Role.STUDENT:
         raise ForbiddenError("Только студент может присоединиться к группе")
-
     group = await crud.get_by_id(db, group_id)
     if not group:
         raise NotFoundError("Группа не найдена")
-
     if await crud.get_member(db, group_id, user.id):
         raise ConflictError("Вы уже в этой группе")
-
     await crud.add_member(db, group_id, user.id)
 
 

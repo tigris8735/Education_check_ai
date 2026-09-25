@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.services.file_service.schemas import FileOut
-from app.shared.enums import SubmissionStatus
+from app.shared.enums import AiCheckStatus, SubmissionStatus
 
 
 class SubmissionCreate(BaseModel):
@@ -43,12 +43,19 @@ class SubmissionOut(BaseModel):
     student_comment: str
     submitted_at: datetime
     created_at: datetime
+    # AI + итог (для списков и деталей)
+    ai_status: AiCheckStatus | None = None
+    ai_score: int | None = None
+    ai_feedback: str | None = None
+    final_score: int | None = None
+    teacher_feedback: str | None = None
 
 
 class SubmissionDetail(SubmissionOut):
     files: list[FileOut] = []
     comments: list[CommentOut] = []
 
+
 class FinalScoreIn(BaseModel):
     final_score: int = Field(..., ge=0, le=100)
-    teacher_feedback: str | None = None    
+    teacher_feedback: str | None = None
