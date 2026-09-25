@@ -16,7 +16,10 @@ export const api = {
     create:  (payload)    => request('/api/v1/groups', { method: 'POST', body: payload }),
     update:  (id, p)      => request(`/api/v1/groups/${id}`, { method: 'PATCH', body: p }),
     remove:  (id)         => request(`/api/v1/groups/${id}`, { method: 'DELETE' }),
-    addMember:    (id, sid) => request(`/api/v1/groups/${id}/members`, { method: 'POST', body: { student_id: sid } }),
+    addMember: (id, payload) => request(`/api/v1/groups/${id}/members`, {
+        method: 'POST',
+        body: payload,  // ← теперь передаём весь объект целиком
+    }),
     removeMember: (id, sid) => request(`/api/v1/groups/${id}/members/${sid}`, { method: 'DELETE' }),
   },
   tasks: {

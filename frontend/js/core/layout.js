@@ -1,11 +1,14 @@
 import { store } from './store.js';
 import { html, initials, escape } from '../ui/render.js';
 import { logout } from './auth.js';
+import { toggleTheme, getStoredTheme } from './theme.js';  // ← добавить импорт
 
 export function renderLayout(content) {
   const user = store.state.user || {};
   const role = user.role || '';
   const nav = role === 'teacher' ? teacherNav() : role === 'student' ? studentNav() : [];
+  const theme = getStoredTheme();
+  const themeIcon = theme === 'dark' ? '☀️' : '🌙';
 
   document.getElementById('app').innerHTML = html`
     <header class="topbar">
@@ -16,6 +19,9 @@ export function renderLayout(content) {
       </a>
       <div class="topbar__spacer"></div>
       <div class="topbar__actions">
+        <button class="btn btn--ghost btn--sm" id="theme-toggle" title="Переключить тему">
+          ${themeIcon}
+        </button>
         <span class="badge badge--role">${role}</span>
         <div class="avatar" title="${escape(user.full_name || user.email || '')}">
           ${initials(user.full_name || user.email || '?')}
@@ -36,8 +42,12 @@ export function renderLayout(content) {
     </div>
   `;
 
-  document.getElementById('logout-btn').addEventListener('click', () => {
-    logout();
+  document.getElementById('logout-btn').addEventListener('click', () => logout());
+
+  document.getElementById('theme-toggle').addEventListener('click', () => {
+    const newTheme = toggleTheme();
+    const btn = document.getElementById('theme-toggle');
+    btn.textContent = newTheme === 'dark' ? '☀️' : '🌙';
   });
 
   // toggle sidebar on mobile
@@ -53,6 +63,7 @@ export function renderLayout(content) {
   });
 }
 
+// teacherNav() и studentNav() остаются без изменений
 function teacherNav() {
   return html`
     <div class="sidebar__section">Преподаватель</div>

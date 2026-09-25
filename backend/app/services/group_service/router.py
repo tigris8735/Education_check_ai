@@ -118,7 +118,8 @@ async def add_member(
     current_user: Annotated[User, Depends(require_teacher)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    await group_service.add_member(db, group_id, payload.user_id, current_user)
+    # Было: await group_service.add_member(db, group_id, payload.user_id, current_user)
+    await group_service.add_member(db, group_id, payload, current_user)  # ← ИСПРАВЛЕНО
 
 
 @router.delete("/{group_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

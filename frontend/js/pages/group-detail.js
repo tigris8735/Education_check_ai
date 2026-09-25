@@ -83,25 +83,48 @@ function openAddStudentModal(groupId) {
   const { close } = openModal({
     title: 'Добавить студента',
     body: `
+      <div class="tabs" style="display:flex;gap:var(--space-2);margin-bottom:var(--space-4)">
+        <button class="btn btn--primary btn--sm tab-btn active" data-tab="existing">
+          Существующий аккаунт
+        </button>
+        <button class="btn btn--ghost btn--sm tab-btn" data-tab="new">
+          Создать новый
+        </button>
+      </div>
+
       <form id="add-student-form" class="stack">
-        <div class="field">
-          <label class="field__label">Имя</label>
-          <input class="input" name="first_name" required placeholder="Иван" />
+        <!-- Вкладка: существующий -->
+        <div id="tab-existing" class="tab-content">
+          <div class="field">
+            <label class="field__label">Email студента</label>
+            <input class="input" type="email" name="email" required
+                   placeholder="student@example.com" />
+            <div class="field__hint">Введите email зарегистрированного студента</div>
+          </div>
         </div>
-        <div class="field">
-          <label class="field__label">Фамилия</label>
-          <input class="input" name="last_name" required placeholder="Иванов" />
-        </div>
-        <div class="field">
-          <label class="field__label">Email</label>
-          <input class="input" type="email" name="email" required placeholder="ivan@example.com" />
-        </div>
-        <div class="field">
-          <label class="field__label">Пароль (временный)</label>
-          <input class="input" type="password" name="password" required minlength="8" placeholder="Минимум 8 символов" />
-        </div>
-        <div class="card card--info" style="padding: var(--space-3); background: var(--bg-muted)">
-          <small>Аккаунт студента будет создан автоматически и он сразу попадёт в группу.</small>
+
+        <!-- Вкладка: новый аккаунт -->
+        <div id="tab-new" class="tab-content" style="display:none">
+          <div class="field">
+            <label class="field__label">Имя</label>
+            <input class="input" name="first_name" placeholder="Иван" />
+          </div>
+          <div class="field">
+            <label class="field__label">Фамилия</label>
+            <input class="input" name="last_name" placeholder="Иванов" />
+          </div>
+          <div class="field">
+            <label class="field__label">Email</label>
+            <input class="input" type="email" name="email_new" placeholder="ivan@example.com" />
+          </div>
+          <div class="field">
+            <label class="field__label">Пароль (временный)</label>
+            <input class="input" type="password" name="password" minlength="8"
+                   placeholder="Минимум 8 символов" />
+          </div>
+          <div class="card card--info" style="padding:var(--space-3);background:var(--bg-muted)">
+            <small>Аккаунт студента будет создан автоматически и он сразу попадёт в группу.</small>
+          </div>
         </div>
       </form>
     `,
@@ -112,31 +135,49 @@ function openAddStudentModal(groupId) {
   });
 
   const backdrop = document.querySelector('.modal-backdrop');
+  let activeTab = 'existing';
+
+  // Переключение вкладок
+  backdrop.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      activeTab = btn.dataset.tab;
+      backdrop.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('active');
+        b.className = b.className.replace('btn--primary', 'btn--ghost');
+      });
+      btn.classList.add('active');
+      btn.className = btn.className.replace('btn--ghost', 'btn--primary');
+
+      backdrop.querySelector('#tab-existing').style.display =
+        activeTab === 'existing' ? 'block' : 'none';
+      backdrop.querySelector('#tab-new').style.display =
+        activeTab === 'new' ? 'block' : 'none';
+    });
+  });
+
   backdrop.querySelector('[data-cancel]').addEventListener('click', close);
   backdrop.querySelector('[data-submit]').addEventListener('click', async () => {
     const form = document.getElementById('add-student-form');
     const data = readForm(form);
-    if (!data.first_name || !data.last_name || !data.email || !data.password) {
-      toast('Заполните все поля', 'warning');
-      return;
+
+    let payload;
+    if (activeTab === 'existing') {
+      if (!data.email) { toast('Укажите email студента', 'warning'); return; }
+      payload = { email: data.email };
+    } else {
+      if (!data.first_name || !data.last_name || !data.email_new || !data.password) {
+        toast('Заполните все поля', 'warning'); return;
+      }
+      payload = {
+        email: data.email_new,
+        first_name: data.first_name,
+        last_name: data.last_name,
+        password: data.password,
+      };
     }
 
     try {
-      // 1. Регистрируем студента
-      const regResult = await api.auth.register({
-        first_name: data.first_name,
-        last_name: data.last_name,
-        email: data.email,
-        password: data.password,
-        role: 'student',
-      });
-
-      const studentId = regResult?.user?.id;
-      if (!studentId) throw new Error('Не удалось получить ID студента');
-
-      // 2. Добавляем его в группу
-      await api.groups.addMember(groupId, studentId);
-
+      await api.groups.addMember(groupId, payload);
       toast('Студент добавлен в группу', 'success');
       close();
       renderGroupDetail({ id: groupId });

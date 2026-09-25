@@ -14,6 +14,7 @@ import { renderSubmissions } from './pages/submissions.js';
 import { renderSubmissionDetail } from './pages/submission-detail.js';
 import { renderLayout } from './core/layout.js';
 import { html } from './ui/render.js';
+import { initTheme } from './core/theme.js';
 
 /* ---------- Routes ---------- */
 route('/login', () => renderLogin());
@@ -73,6 +74,7 @@ window.addEventListener('educheck:logout', () => {
 });
 
 (async function bootstrap() {
+  initTheme();
   await restoreSession();
   startRouter();
 })();
