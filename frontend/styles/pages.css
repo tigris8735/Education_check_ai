@@ -1,18 +1,149 @@
-/* ===== Градиентная акцентная stat-карточка ===== */
+/* ===== Auth ===== */
+.auth {
+  min-height: 100vh;
+  display: grid; place-items: center;
+  padding: var(--space-6);
+  background:
+    radial-gradient(1200px 600px at 80% -10%, var(--accent-soft), transparent 60%),
+    radial-gradient(900px 500px at -10% 100%, var(--ai-soft), transparent 60%),
+    var(--bg-canvas);
+}
+.auth__card {
+  width: 100%; max-width: 420px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  padding: var(--space-8);
+}
+
+/* ===== Stat cards ===== */
+.stat {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  transition: transform var(--transition-base), box-shadow var(--transition-base),
+              border-color var(--transition-base);
+}
+.stat:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--border-strong);
+}
+.stat__label {
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.stat__value {
+  font-size: var(--fs-3xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--text-primary);
+}
+.stat__hint {
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  margin-top: auto;
+  padding-top: var(--space-2);
+}
+
+/* Акцентная карточка с градиентом */
 .stat--accent {
   background: linear-gradient(135deg, var(--accent), var(--ai));
-  color: var(--text-inverse);
+  border-color: transparent;
+  box-shadow: var(--shadow-md);
+}
+.stat--accent:hover {
+  box-shadow: var(--shadow-lg);
   border-color: transparent;
 }
 .stat--accent .stat__label,
-.stat--accent .stat__hint { color: rgba(255,255,255,0.85); }
-.stat--accent .stat__value { color: var(--text-inverse); }
-.stat--accent .score { color: var(--text-inverse); }
-.stat--accent .score__max { color: rgba(255,255,255,0.7); }
+.stat--accent .stat__hint { color: rgba(255, 255, 255, 0.8); }
+.stat--accent .stat__value { color: #fff; }
+.stat--accent .score,
+.stat--accent .score__value { color: #fff; }
+.stat--accent .score__max { color: rgba(255, 255, 255, 0.7); }
+
+/* ===== AI review ===== */
+.ai-review {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+}
+@media (max-width: 800px) { .ai-review { grid-template-columns: 1fr; } }
+
+.ai-review__panel {
+  background: var(--bg-canvas);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+.ai-review__panel h4 { margin-bottom: var(--space-3); color: var(--text-primary); }
+.ai-review__panel--ai {
+  background: var(--ai-soft);
+  border-color: transparent;
+}
+.submission-text {
+  font-family: var(--font-sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh-loose);
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* ===== Drop zone ===== */
+.dropzone {
+  border: 2px dashed var(--border-strong);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--text-muted);
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+  cursor: pointer;
+}
+.dropzone:hover, .dropzone.is-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-hover);
+}
+.dropzone__icon { margin: 0 auto var(--space-2); opacity: 0.7; }
+
+/* ===== Progress bar ===== */
+.progress {
+  height: 6px; width: 100%;
+  background: var(--bg-subtle); border-radius: 999px;
+  overflow: hidden;
+}
+.progress__bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--ai));
+  transition: width var(--transition-base);
+}
+
+/* ===== Pulse ===== */
+.pulse-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--ai);
+  animation: pulse 1.4s infinite;
+  display: inline-block;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1); }
+}
 
 /* ===== Staggered-анимация карточек ===== */
 .staggered > * {
-  animation: staggerIn 420ms cubic-bezier(.22,.9,.32,1) both;
+  animation: staggerIn 420ms cubic-bezier(.22, .9, .32, 1) both;
 }
 .staggered > *:nth-child(1) { animation-delay: 0ms; }
 .staggered > *:nth-child(2) { animation-delay: 60ms; }
@@ -27,7 +158,7 @@
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ===== Groups picker (чекбоксы групп) ===== */
+/* ===== Groups picker (чекбоксы групп в модалке создания задания) ===== */
 .groups-picker {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -51,28 +182,24 @@
 .groups-picker__item input[type="checkbox"] {
   accent-color: var(--accent);
   width: 16px; height: 16px;
+  flex-shrink: 0;
 }
 
-/* ===== Улучшенный hover для интерактивных карточек ===== */
+/* ===== Полировка интерактивных карточек ===== */
 .card--interactive:hover {
   box-shadow: var(--shadow-md);
   border-color: var(--accent);
   transform: translateY(-2px);
 }
 
-/* ===== Градиентная полоска прогресса ===== */
-.progress__bar {
-  background: linear-gradient(90deg, var(--accent), var(--ai));
-}
-
-/* ===== Улучшенные бейджи ===== */
+/* ===== Полировка бейджей ===== */
 .badge--role {
   background: linear-gradient(135deg, var(--accent-soft), var(--ai-soft));
   color: var(--accent-hover);
   font-weight: 600;
 }
 
-/* ===== Тонкий бордер у sidebar__link на hover ===== */
+/* ===== Полировка сайдбара ===== */
 .sidebar__link:hover {
   background: linear-gradient(90deg, var(--bg-subtle), transparent);
 }
@@ -83,7 +210,7 @@
   box-shadow: inset 3px 0 0 var(--accent);
 }
 
-/* ===== Pulse для topbar logo ===== */
+/* ===== Блик на логотипе в topbar ===== */
 .topbar__logo {
   position: relative;
   overflow: hidden;
@@ -92,7 +219,7 @@
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, transparent 40%, rgba(255,255,255,0.25) 50%, transparent 60%);
+  background: linear-gradient(120deg, transparent 40%, rgba(255, 255, 255, 0.25) 50%, transparent 60%);
   animation: shine 3.5s ease-in-out infinite;
 }
 @keyframes shine {
