@@ -18,6 +18,7 @@ from app.services.user_service.models import User
 from app.shared.permissions import get_current_user, require_teacher
 from app.services.ai_service import service as ai_service
 from app.services.ai_service.schemas import AiCheckOut, AiCheckRequest
+from app.shared.enums import SubmissionStatus
 
 router = APIRouter()
 
@@ -135,7 +136,7 @@ async def save_final_score(
     sub = await sub_service.get_submission(db, submission_id, current_user)
     sub.final_score = payload.final_score
     sub.teacher_feedback = payload.teacher_feedback
-    sub.status = "reviewed"
+    sub.status = SubmissionStatus.REVIEWED
     await db.commit()
     await db.refresh(sub)
     return sub

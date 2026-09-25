@@ -130,18 +130,50 @@ function openEditTaskModal(task) {
   const backdrop = document.querySelector('.modal-backdrop');
   backdrop.querySelector('[data-cancel]').addEventListener('click', close);
   backdrop.querySelector('[data-submit]').addEventListener('click', async () => {
-    const form = document.getElementById('edit-task-form');
+    const form = document.getElementById('submit-form') || document.getElementById('submission-form');
     const data = readForm(form);
-    if (data.deadline) data.deadline = new Date(data.deadline).toISOString();
-    else delete data.deadline;
+    if (!data.student_comment && !file) { toast('Добавьте текст или файл', 'warning'); return; }
 
+    const btn = backdrop.querySelector('[data-submit]');
+    btn.disabled = true;
     try {
-      await api.tasks.update(task.id, data);
-      toast('Задание обновлено', 'success');
+      let submissionId;
+      if (existing) {
+        await api.submissions.update(existing.id, { student_comment: data.student_comment });
+        submissionId = existing.id;
+      } else {
+        const created = await api.submissions.create({
+          task_id: task.id,
+          student_comment: data.student_comment,
+        });
+        submissionId = created?.id;
+      }
+
+      if (file && submissionId) {
+        // 1) presigned URL
+        const presign = await api.files.presign({
+          original_name: file.name,
+          content_type: file.type || 'application/octet-stream',
+          size: file.size,
+        });
+        // 2) прямой PUT в S3/R2 (обычный fetch, без базового URL и токенов!)
+        const putRes = await fetch(presign.upload_url, {
+          method: 'PUT',
+          headers: { 'Content-Type': file.type || 'application/octet-stream' },
+          body: file,
+        });
+        if (!putRes.ok) throw new Error('Хранилище отклонило файл (PUT ' + putRes.status + ')');
+        // 3) подтверждение
+        await api.files.confirm(presign.file_id, submissionId);
+      }
+
+      toast('Работа отправлена', 'success');
       close();
       renderTaskDetail({ id: task.id });
     } catch (err) {
       toast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
     }
   });
 }

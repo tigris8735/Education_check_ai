@@ -1,40 +1,6 @@
-from collections.abc import AsyncGenerator
-from sqlalchemy.ext.asyncio import (
-    AsyncSession,
-    async_sessionmaker,
-    create_async_engine,
-)
-
-from app.core.config import settings
-from app.shared.base_model import Base
-
-engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=settings.DEBUG,
-    pool_pre_ping=True,
-)
-
-SessionLocal = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-    autoflush=False,
-)
-
-
-async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI-зависимость: одна сессия на запрос."""
-    async with SessionLocal() as session:
-        yield session
-
+from sqlalchemy import inspect, text
 
 async def init_db() -> None:
-    """
-    Создаёт таблицы при старте приложения.
-    ВАЖНО: здесь нужно импортировать все модели, чтобы они попали в Base.metadata.
-    По мере добавления сервисов — расширяем список импортов.
-    """
-    # --- импорты моделей (по мере разработки) ---
     from app.services.user_service import models as _user_models
     from app.services.group_service import models as _group_models
     from app.services.task_service import models as _task_models
@@ -43,4 +9,23 @@ async def init_db() -> None:
     from app.services.ai_service import models as _ai_models
 
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_sync_schema)
+
+
+def _sync_schema(conn) -> None:
+    """create_all + до-добавление недостающих колонок в старые таблицы."""
+    inspector = inspect(conn)
+    Base.metadata.create_all(conn, checkfirst=True)
+
+    for table in Base.metadata.sorted_tables:
+        if not inspector.has_table(table.name):
+            continue  # таблица создана только что — колонки уже все
+        existing = {c["name"] for c in inspector.get_columns(table.name)}
+        for col in table.columns:
+            if col.name in existing:
+                continue
+            col_type = col.type.compile(conn.dialect)
+            conn.execute(text(
+                f'ALTER TABLE {table.name} '
+                f'ADD COLUMN IF NOT EXISTS {col.name} {col_type} NULL'
+            ))

@@ -10,7 +10,8 @@ class SubmissionStatus(str, Enum):
     DRAFT = "draft"                # создано, но не отправлено
     SUBMITTED = "submitted"        # сдано студентом
     CHECKING = "checking"          # AI проверяет
-    CHECKED = "checked"            # AI + препод завершили
+    CHECKED = "checked" 
+    REVIEWED = "reviewed"           # AI + препод завершили
     FAILED = "failed"              # ошибка при проверке
 
 

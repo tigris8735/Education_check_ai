@@ -42,4 +42,10 @@ export const api = {
     triggerAI: (id)       => request(`/api/v1/submissions/${id}/check`, { method: 'POST' }),
     listByTask: (tid)     => request(`/api/v1/submissions?task_id=${tid}`),
   },
+  files: {
+    presign: (p) => request('/api/v1/files/presign-upload', { method: 'POST', body: p }),
+    confirm: (id, submissionId) =>
+        request(`/api/v1/files/${id}/confirm`, { method: 'POST', body: { submission_id: submissionId } }),
+    downloadUrl: (id) => request(`/api/v1/files/${id}/download-url`),
+  },
 };
