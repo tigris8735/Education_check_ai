@@ -50,7 +50,7 @@ async def create_submission(
     if not task:
         raise NotFoundError("Задание не найдено")
 
-    # студент должен быть в хотя бы одной группе задания
+    # студент должен быть хотя бы в одной группе задания
     task_groups = await task_crud.group_ids_for_task(db, task.id)
     member_of_any = False
     for gid in task_groups:
@@ -60,12 +60,12 @@ async def create_submission(
     if not member_of_any:
         raise ForbiddenError("Вы не состоите ни в одной группе этого задания")
 
-    # проверка лимита попыток
+    # лимит попыток (or 0 — защита от NULL в старых строках)
+    max_attempts = task.max_attempts or 0
     existing_attempts = await crud.list_by_task_and_student(db, task.id, student.id)
-    if task.max_attempts > 0 and len(existing_attempts) >= task.max_attempts:
+    if max_attempts > 0 and len(existing_attempts) >= max_attempts:
         raise ConflictError(
-            f"Превышен лимит попыток ({task.max_attempts}). "
-            "Больше сдать это задание нельзя."
+            f"Превышен лимит попыток ({max_attempts}). Больше сдать это задание нельзя."
         )
 
     if _is_task_expired(task):
@@ -112,7 +112,6 @@ async def build_detail(db: AsyncSession, sub: Submission) -> SubmissionDetail:
                     group_name = g.name
                 break
 
-    # номер попытки: сортируем все попытки студента по заданию
     attempts = await crud.list_by_task_and_student(db, sub.task_id, sub.student_id)
     attempt_number = 1
     for i, a in enumerate(attempts, start=1):
@@ -142,7 +141,7 @@ async def build_detail(db: AsyncSession, sub: Submission) -> SubmissionDetail:
         task_title=task.title if task else "",
         attempt_number=attempt_number,
         total_attempts=len(attempts),
-        max_attempts=task.max_attempts if task else 0,
+        max_attempts=(task.max_attempts or 0) if task else 0,
     )
 
 
@@ -153,7 +152,6 @@ async def list_submissions(
         if task_id is not None:
             attempts = await crud.list_by_task_and_student(db, task_id, user.id)
             return attempts[:1] if attempts else []
-        # последняя попытка по каждому заданию
         all_subs = await crud.list_by_student(db, user.id)
         latest_by_task: dict[int, Submission] = {}
         for s in all_subs:

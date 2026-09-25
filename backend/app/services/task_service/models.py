@@ -13,7 +13,7 @@ class Task(Base, TimestampMixin):
     teacher_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # Оставлено для обратной совместимости; у мульти-групповых заданий = None
+    # legacy: для совместимости; у мульти-групповых заданий может быть None
     group_id: Mapped[int | None] = mapped_column(
         ForeignKey("groups.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -23,7 +23,7 @@ class Task(Base, TimestampMixin):
         DateTime(timezone=True), nullable=False, index=True
     )
     max_attempts: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0
+        Integer, nullable=False, default=0, server_default="0"
     )  # 0 = без ограничений
 
     groups: Mapped[list["TaskGroupAssignment"]] = relationship(

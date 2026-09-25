@@ -35,7 +35,7 @@ async def _to_task_out(db: AsyncSession, t: Task) -> TaskOut:
         deadline=t.deadline,
         created_at=t.created_at,
         is_expired=task_crud.is_expired(t),
-        max_attempts=t.max_attempts,
+        max_attempts=t.max_attempts or 0,          # ← защита от NULL из старых строк
         group_names=group_names,
         members_count=members,
         submissions_count=len(subs),
