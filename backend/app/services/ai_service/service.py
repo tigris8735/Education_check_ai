@@ -21,7 +21,6 @@ _TEXT_EXTENSIONS = (".txt", ".md", ".csv", ".py", ".js", ".html", ".css", ".json
 
 
 async def _collect_submission_text(db: AsyncSession, sub: Submission) -> str:
-    """Текст из прикреплённых файлов (текстовые читаем, бинарные — помечаем)."""
     parts: list[str] = []
     files = await file_crud.list_by_submission(db, sub.id)
 
@@ -41,9 +40,7 @@ async def _collect_submission_text(db: AsyncSession, sub: Submission) -> str:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 resp = await client.get(url)
             if resp.status_code == 200:
-                parts.append(
-                    f"--- Файл: {f.original_name} ---\n{resp.text[:50000]}"
-                )
+                parts.append(f"--- Файл: {f.original_name} ---\n{resp.text[:50000]}")
         except Exception as e:  # noqa: BLE001
             logger.warning("Не удалось прочитать файл %s: %s", f.original_name, e)
             parts.append(f"--- Файл: {f.original_name} (ошибка чтения) ---")
@@ -118,10 +115,11 @@ async def run_check(
             student_comment=sub.student_comment,
         )
     except Exception as e:  # noqa: BLE001
+        # БОЛЬШЕ НЕ 500: сохраняем ошибку в проверку и отдаём её клиенту как есть
         logger.exception("AI check failed for submission %s", submission_id)
-        await crud.mark_error(db, check, str(e))
+        check = await crud.mark_error(db, check, f"{type(e).__name__}: {e}")
         await submission_crud.update(db, sub, status=SubmissionStatus.FAILED)
-        raise
+        return check
 
     check = await crud.mark_done(db, check, result.score, result.feedback)
     await submission_crud.update(db, sub, status=SubmissionStatus.CHECKED)

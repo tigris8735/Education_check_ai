@@ -1,7 +1,8 @@
 from functools import lru_cache
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import field_validator
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 
 class Settings(BaseSettings):
@@ -25,7 +26,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
-    # S3
+    # S3 / R2
     S3_ENDPOINT: str = ""
     S3_REGION: str = "auto"
     S3_ACCESS_KEY: str = ""
@@ -40,6 +41,14 @@ class Settings(BaseSettings):
     AI_PROVIDER: str = "mock"          # mock | openai
     OPENAI_API_KEY: str = ""
     OPENAI_MODEL: str = "gpt-4o-mini"
+    # Эндпоинт OpenAI-совместимого сервиса.
+    # Понимаем несколько имён env-переменных сразу — как бы ты её ни назвал.
+    OPENAI_BASE_URL: str = Field(
+        "",
+        validation_alias=AliasChoices(
+            "OPENAI_BASE_URL", "OPENAI_API_BASE", "OPENAI_ENDPOINT"
+        ),
+    )
 
     # CORS
     CORS_ORIGINS: str = "http://localhost:3000,http://localhost:5173"
@@ -52,31 +61,33 @@ class Settings(BaseSettings):
     def max_file_size_bytes(self) -> int:
         return self.MAX_FILE_SIZE_MB * 1024 * 1024
 
+    @field_validator("OPENAI_BASE_URL", mode="before")
+    @classmethod
+    def _strip_base_url(cls, v):
+        if isinstance(v, str):
+            return v.strip().rstrip("/")
+        return ""
+
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
     def _normalize_db_url(cls, v: str) -> str:
         if not isinstance(v, str):
             return v
 
-        # 1. Приводим схему к postgresql+asyncpg://
         if v.startswith("postgres://"):
             v = v.replace("postgres://", "postgresql+asyncpg://", 1)
         elif v.startswith("postgresql://"):
             v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-        # 2. Разбираем URL и чистим query-параметры
         parsed = urlparse(v)
         query = parse_qs(parsed.query)
 
-        # Удаляем параметры, которые не понимает asyncpg
         for key in ["sslmode", "channel_binding", "options"]:
             query.pop(key, None)
 
-        # Если был sslmode=require, ставим ssl=require
         if "sslmode=require" in v and "ssl" not in query:
             query["ssl"] = ["require"]
 
-        # Собираем URL обратно
         new_query = urlencode(query, doseq=True)
         new_parsed = parsed._replace(query=new_query)
         return urlunparse(new_parsed)

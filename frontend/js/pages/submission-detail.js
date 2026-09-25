@@ -39,9 +39,12 @@ export async function renderSubmissionDetail({ id }) {
             ? `<span class="score score--${scoreClass(s.ai_score)}">
                  <span class="score__value">${s.ai_score}</span><span class="score__max">/100</span>
                </span>` : ''}</h4>
-          ${s.ai_feedback
-            ? `<div class="md">${renderSafeMarkdown(s.ai_feedback)}</div>`
-            : `<p class="text-muted">AI-проверка ещё не выполнена.</p>`}
+          ${s.ai_status === 'error'
+            ? `<p style="color:var(--danger)">❌ Ошибка AI: ${escape(s.ai_error || 'неизвестная')}</p>
+               <p class="text-muted">Проверьте настройки провайдера и повторите запуск.</p>`
+            : s.ai_feedback
+              ? `<div class="md">${renderSafeMarkdown(s.ai_feedback)}</div>`
+              : `<p class="text-muted">AI-проверка ещё не выполнена.</p>`}
         </div>
       </div>
 
@@ -90,7 +93,6 @@ export async function renderSubmissionDetail({ id }) {
 
     renderLayout(content);
 
-    // Скачивание файлов
     document.querySelectorAll('[data-download]').forEach(btn => {
       btn.addEventListener('click', async () => {
         try {
@@ -100,7 +102,6 @@ export async function renderSubmissionDetail({ id }) {
       });
     });
 
-    // Комментарий
     document.getElementById('comment-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const text = e.target.elements.text.value.trim();
@@ -112,15 +113,21 @@ export async function renderSubmissionDetail({ id }) {
       } catch (err) { toast(err.message, 'error'); }
     });
 
-    // AI-проверка
     document.getElementById('run-ai')?.addEventListener('click', async () => {
       const btn = document.getElementById('run-ai');
       btn.disabled = true;
       btn.textContent = '⏳ Проверка выполняется...';
       try {
-        await api.submissions.triggerAI(id, { force: true });
-        toast('AI-проверка запущена...', 'info');
+        const check = await api.submissions.triggerAI(id, { force: true });
 
+        // Провайдер упал аккуратно: показываем причину без 500
+        if (check?.status === 'error') {
+          toast(`Ошибка AI: ${check.error || 'см. панель проверки'}`, 'error');
+          renderSubmissionDetail({ id });
+          return;
+        }
+
+        toast('AI-проверка запущена...', 'info');
         let attempts = 0;
         const poll = setInterval(async () => {
           attempts++;
@@ -139,7 +146,6 @@ export async function renderSubmissionDetail({ id }) {
       }
     });
 
-    // Итоговая оценка
     document.getElementById('review-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const score = Number(e.target.elements.score.value);

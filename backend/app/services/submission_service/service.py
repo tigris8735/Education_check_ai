@@ -8,6 +8,7 @@ from app.core.exceptions import (
     NotFoundError,
     ValidationError,
 )
+from app.services.ai_service import crud as ai_crud
 from app.services.file_service import crud as file_crud
 from app.services.group_service import crud as group_crud
 from app.services.submission_service import crud
@@ -21,7 +22,7 @@ from app.services.submission_service.schemas import (
 )
 from app.services.task_service import crud as task_crud
 from app.services.user_service.models import User
-from app.shared.enums import FileStatus, Role, SubmissionStatus
+from app.shared.enums import Role, SubmissionStatus
 
 
 def _is_task_expired(task) -> bool:
@@ -31,7 +32,12 @@ def _is_task_expired(task) -> bool:
     return deadline < datetime.now(timezone.utc)
 
 
-# ---------- Создание сдачи ----------
+LOCKED = (
+    SubmissionStatus.CHECKING,
+    SubmissionStatus.CHECKED,
+    SubmissionStatus.REVIEWED,
+)
+
 
 async def create_submission(
     db: AsyncSession, data: SubmissionCreate, student: User
@@ -43,16 +49,13 @@ async def create_submission(
     if not task:
         raise NotFoundError("Задание не найдено")
 
-    # студент должен быть в группе задания
     member = await group_crud.get_member(db, task.group_id, student.id)
     if not member:
         raise ForbiddenError("Вы не состоите в группе этого задания")
 
-    # одна сдача на задание
     if await crud.get_by_task_and_student(db, task.id, student.id):
         raise ConflictError("Вы уже сдали это задание")
 
-    # после дедлайна — не принимаем
     if _is_task_expired(task):
         raise ValidationError("Срок сдачи задания истёк")
 
@@ -64,8 +67,6 @@ async def create_submission(
         student_comment=data.student_comment,
     )
 
-
-# ---------- Чтение ----------
 
 async def get_submission(db: AsyncSession, submission_id: int, user: User) -> Submission:
     sub = await crud.get_by_id(db, submission_id)
@@ -83,10 +84,10 @@ async def get_submission(db: AsyncSession, submission_id: int, user: User) -> Su
     return sub
 
 
-async def build_detail(
-    db: AsyncSession, sub: Submission
-) -> SubmissionDetail:
+async def build_detail(db: AsyncSession, sub: Submission) -> SubmissionDetail:
     files = await file_crud.list_by_submission(db, sub.id)
+    ai_check = await ai_crud.get_by_submission(db, sub.id)
+
     return SubmissionDetail(
         id=sub.id,
         task_id=sub.task_id,
@@ -97,6 +98,12 @@ async def build_detail(
         created_at=sub.created_at,
         files=[f for f in files],
         comments=[c for c in sub.comments],
+        ai_status=ai_check.status if ai_check else None,
+        ai_score=ai_check.score if ai_check else None,
+        ai_feedback=ai_check.feedback if ai_check else None,
+        ai_error=ai_check.error if ai_check else None,
+        final_score=sub.final_score,
+        teacher_feedback=sub.teacher_feedback,
     )
 
 
@@ -109,20 +116,20 @@ async def list_submissions(
             return [sub] if sub else []
         return await crud.list_by_student(db, user.id)
 
-    # teacher
     if task_id is None:
-        raise ValidationError("Преподавателю нужно указать task_id")
+        tasks = await task_crud.list_by_teacher(db, user.id)
+        result: list[Submission] = []
+        for t in tasks:
+            result.extend(await crud.list_by_task(db, t.id))
+        return result
 
     task = await task_crud.get_by_id(db, task_id)
     if not task:
         raise NotFoundError("Задание не найдено")
     if task.teacher_id != user.id:
         raise ForbiddenError("Это задание создано другим преподавателем")
-
     return await crud.list_by_task(db, task_id)
 
-
-# ---------- Изменение ----------
 
 async def update_own_submission(
     db: AsyncSession, submission_id: int, data: SubmissionUpdate, student: User
@@ -132,9 +139,8 @@ async def update_own_submission(
         raise NotFoundError("Сдача не найдена")
     if sub.student_id != student.id:
         raise ForbiddenError("Это не ваша сдача")
-    if sub.status in (SubmissionStatus.CHECKING, SubmissionStatus.CHECKED):
+    if sub.status in LOCKED:
         raise ConflictError("Сдача уже на проверке/проверена, изменения запрещены")
-
     return await crud.update(db, sub, student_comment=data.student_comment)
 
 
@@ -144,17 +150,13 @@ async def change_status(
     sub = await crud.get_by_id(db, submission_id)
     if not sub:
         raise NotFoundError("Сдача не найдена")
-
     task = await task_crud.get_by_id(db, sub.task_id)
     if not task or task.teacher_id != teacher.id:
         raise ForbiddenError("Это сдача по чужому заданию")
-
     return await crud.update(db, sub, status=data.status)
 
 
-async def delete_submission(
-    db: AsyncSession, submission_id: int, user: User
-) -> None:
+async def delete_submission(db: AsyncSession, submission_id: int, user: User) -> None:
     sub = await crud.get_by_id(db, submission_id)
     if not sub:
         raise NotFoundError("Сдача не найдена")
@@ -162,26 +164,23 @@ async def delete_submission(
     if user.role == Role.STUDENT:
         if sub.student_id != user.id:
             raise ForbiddenError("Это не ваша сдача")
-        if sub.status in (SubmissionStatus.CHECKING, SubmissionStatus.CHECKED):
+        if sub.status in LOCKED:
             raise ConflictError("Сдача уже на проверке/проверена")
     else:
         task = await task_crud.get_by_id(db, sub.task_id)
         if not task or task.teacher_id != user.id:
             raise ForbiddenError("Это сдача по чужому заданию")
 
-    # удалим связанные файлы из S3
-    from app.services.file_service.service import delete_file as _delete_file  # локальный импорт
     files = await file_crud.list_by_submission(db, sub.id)
     for f in files:
         try:
+            from app.services.file_service.service import delete_file as _delete_file
             await _delete_file(db, f.id, user)
         except Exception:
-            pass  # best-effort
+            pass
 
     await crud.delete(db, sub)
 
-
-# ---------- Комментарии ----------
 
 async def add_comment(
     db: AsyncSession, submission_id: int, data: CommentCreate, user: User
@@ -201,9 +200,7 @@ async def add_comment(
     return await crud.add_comment(db, submission_id, user.id, data.text)
 
 
-async def delete_comment(
-    db: AsyncSession, comment_id: int, user: User
-) -> None:
+async def delete_comment(db: AsyncSession, comment_id: int, user: User) -> None:
     c = await crud.get_comment(db, comment_id)
     if not c:
         raise NotFoundError("Комментарий не найден")
