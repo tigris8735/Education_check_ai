@@ -43,12 +43,18 @@ class SubmissionOut(BaseModel):
     student_comment: str
     submitted_at: datetime
     created_at: datetime
+    # AI + итог
     ai_status: AiCheckStatus | None = None
     ai_score: int | None = None
     ai_feedback: str | None = None
-    ai_error: str | None = None          # ← НОВОЕ
+    ai_error: str | None = None
     final_score: int | None = None
     teacher_feedback: str | None = None
+    # ← НОВОЕ: кто сдал и по какому заданию (для списков/карточек)
+    student_first_name: str = ""
+    student_last_name: str = ""
+    student_group_name: str = ""
+    task_title: str = ""
 
 
 class SubmissionDetail(SubmissionOut):

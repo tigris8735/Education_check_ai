@@ -23,6 +23,8 @@ export async function renderTaskDetail({ id }) {
       <div class="breadcrumbs">
         <a href="#/">Главная</a>
         <span class="breadcrumbs__sep">/</span>
+        <a href="#/tasks">Задания</a>
+        <span class="breadcrumbs__sep">/</span>
         <span>${escape(task.title)}</span>
       </div>
 
@@ -73,16 +75,26 @@ function renderTeacherSubmissions(submissions) {
     <div class="table-wrapper">
       <table class="table">
         <thead>
-          <tr><th>ID</th><th>Статус</th><th>AI</th><th>Итог</th><th>Дата</th></tr>
+          <tr>
+            <th>Студент</th>
+            <th>Группа</th>
+            <th>Статус</th>
+            <th>AI</th>
+            <th>Итог</th>
+            <th>Дата</th>
+          </tr>
         </thead>
         <tbody>
           ${submissions.map(s => `
             <tr onclick="location.hash='#/submissions/${s.id}'" style="cursor:pointer">
-              <td class="text-mono">#${s.id}</td>
+              <td><strong>${escape(s.student_last_name || '')} ${escape(s.student_first_name || '')}</strong></td>
+              <td><span class="badge">${escape(s.student_group_name || '—')}</span></td>
               <td><span class="badge badge--${statusClass(s.status)}">${statusLabel(s.status)}</span></td>
               <td>${s.ai_score ?? '—'}</td>
-              <td><strong>${s.final_score ?? '—'}</strong></td>
-              <td class="text-muted">${formatDateTime(s.submitted_at)}</td>
+              <td>${s.final_score != null
+                ? `<span class="score score--${scoreClass(s.final_score)}"><span class="score__value">${s.final_score}</span></span>`
+                : '—'}</td>
+              <td class="text-muted">${formatDateTime(s.submitted_at || s.created_at)}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -169,14 +181,13 @@ function openSubmitModal(task, existing) {
           content_type: file.type || 'application/octet-stream',
           size: file.size,
         });
-
         const putRes = await fetch(presign.upload_url, {
           method: 'PUT',
           headers: { 'Content-Type': file.type || 'application/octet-stream' },
           body: file,
         });
         if (!putRes.ok) {
-          throw new Error(`Хранилище отклонило файл (HTTP ${putRes.status}). Проверьте CORS бакета.`);
+          throw new Error(`Хранилище отклонило файл (HTTP ${putRes.status})`);
         }
         await api.files.confirm(presign.file_id, submissionId);
       }
@@ -200,4 +211,10 @@ function statusClass(s) {
 function statusLabel(s) {
   return ({ draft: 'Черновик', submitted: 'Сдано', checking: 'AI проверяет',
             checked: 'AI проверено', reviewed: 'Оценено', failed: 'Ошибка' })[s] || s;
+}
+
+function scoreClass(v) {
+  if (v >= 75) return 'good';
+  if (v >= 50) return 'warn';
+  return 'bad';
 }

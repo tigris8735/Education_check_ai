@@ -21,6 +21,7 @@ from app.services.submission_service.schemas import (
     SubmissionUpdate,
 )
 from app.services.task_service import crud as task_crud
+from app.services.user_service import crud as user_crud
 from app.services.user_service.models import User
 from app.shared.enums import Role, SubmissionStatus
 
@@ -88,6 +89,13 @@ async def build_detail(db: AsyncSession, sub: Submission) -> SubmissionDetail:
     files = await file_crud.list_by_submission(db, sub.id)
     ai_check = await ai_crud.get_by_submission(db, sub.id)
 
+    task = await task_crud.get_by_id(db, sub.task_id)
+    student = await user_crud.get_by_id(db, sub.student_id)
+    group_name = ""
+    if task:
+        group = await group_crud.get_by_id(db, task.group_id)
+        group_name = group.name if group else ""
+
     return SubmissionDetail(
         id=sub.id,
         task_id=sub.task_id,
@@ -104,6 +112,10 @@ async def build_detail(db: AsyncSession, sub: Submission) -> SubmissionDetail:
         ai_error=ai_check.error if ai_check else None,
         final_score=sub.final_score,
         teacher_feedback=sub.teacher_feedback,
+        student_first_name=student.first_name if student else "",
+        student_last_name=student.last_name if student else "",
+        student_group_name=group_name,
+        task_title=task.title if task else "",
     )
 
 
@@ -185,17 +197,17 @@ async def delete_submission(db: AsyncSession, submission_id: int, user: User) ->
 async def add_comment(
     db: AsyncSession, submission_id: int, data: CommentCreate, user: User
 ) -> Comment:
+    """Комментарии — только преподаватель, как дополнение к проверке работы."""
+    if user.role != Role.TEACHER:
+        raise ForbiddenError("Комментарии к работе может оставлять только преподаватель")
+
     sub = await crud.get_by_id(db, submission_id)
     if not sub:
         raise NotFoundError("Сдача не найдена")
 
-    if user.role == Role.TEACHER:
-        task = await task_crud.get_by_id(db, sub.task_id)
-        if not task or task.teacher_id != user.id:
-            raise ForbiddenError("Это сдача по чужому заданию")
-    else:
-        if sub.student_id != user.id:
-            raise ForbiddenError("Это не ваша сдача")
+    task = await task_crud.get_by_id(db, sub.task_id)
+    if not task or task.teacher_id != user.id:
+        raise ForbiddenError("Это сдача по чужому заданию")
 
     return await crud.add_comment(db, submission_id, user.id, data.text)
 
@@ -204,6 +216,6 @@ async def delete_comment(db: AsyncSession, comment_id: int, user: User) -> None:
     c = await crud.get_comment(db, comment_id)
     if not c:
         raise NotFoundError("Комментарий не найден")
-    if c.author_id != user.id and user.role != Role.TEACHER:
-        raise ForbiddenError("Можно удалять только свои комментарии")
+    if user.role != Role.TEACHER:
+        raise ForbiddenError("Комментарии может удалять только преподаватель")
     await crud.delete_comment(db, c)

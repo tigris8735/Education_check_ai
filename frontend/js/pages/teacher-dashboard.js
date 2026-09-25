@@ -1,73 +1,84 @@
 import { api } from '../api/index.js';
 import { renderLayout } from '../core/layout.js';
-import { html, escape, formatDate, relativeDeadline } from '../ui/render.js';
+import { html } from '../ui/render.js';
 import { toast } from '../ui/toast.js';
 
 export async function renderTeacherDashboard() {
   renderLayout(`<div class="skeleton" style="height:80px"></div>`);
   try {
-    const [groups, tasks] = await Promise.all([
+    const [groups, tasks, subs] = await Promise.all([
       api.groups.list().catch(() => []),
       api.tasks.list().catch(() => []),
+      api.submissions.list().catch(() => []),
     ]);
 
-    // Собираем сдачи по каждому заданию препода
-    let allSubmissions = [];
-    for (const t of tasks) {
-      try {
-        const subs = await api.submissions.listByTask(t.id);
-        allSubmissions = allSubmissions.concat(subs);
-      } catch { /* пропускаем */ }
-    }
+    // уникальные студенты по всем группам
+    const details = await Promise.all(groups.map(g => api.groups.get(g.id).catch(() => null)));
+    const studentIds = new Set();
+    details.forEach(g => g?.members?.forEach(m => studentIds.add(m.id)));
 
-    const pending = allSubmissions.filter(s => s.status === 'submitted');
-    const checked = allSubmissions.filter(s => s.status === 'checked').length;
+    const activeTasks = tasks.filter(t => !t.is_expired);
+    const expiredTasks = tasks.filter(t => t.is_expired);
+    const pending = subs.filter(s => s.status === 'submitted' || s.status === 'checking');
+    const aiChecked = subs.filter(s => s.status === 'checked');
+    const reviewed = subs.filter(s => s.status === 'reviewed');
+    const finals = subs.map(s => s.final_score).filter(v => v != null);
+    const avg = finals.length
+      ? Math.round(finals.reduce((a, b) => a + b, 0) / finals.length)
+      : null;
 
     const content = html`
       <div class="page-header">
         <div class="page-header__title">
           <h1>Дашборд преподавателя</h1>
-          <p class="page-header__subtitle">Обзор групп, заданий и работ студентов</p>
+          <p class="page-header__subtitle">Сводка по вашим группам, заданиям и работам</p>
         </div>
-        <div class="page-header__actions">
-          <a class="btn btn--primary" href="#/tasks">+ Новое задание</a>
+      </div>
+
+      <div class="grid grid--4" style="margin-bottom: var(--space-4)">
+        <div class="stat">
+          <div class="stat__label">Группы</div>
+          <div class="stat__value">${groups.length}</div>
+          <div class="stat__hint">ведёте сейчас</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">Студенты</div>
+          <div class="stat__value">${studentIds.size}</div>
+          <div class="stat__hint">уникальных во всех группах</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">Задания</div>
+          <div class="stat__value">${tasks.length}</div>
+          <div class="stat__hint">активных: ${activeTasks.length} · истекло: ${expiredTasks.length}</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">Сдано работ</div>
+          <div class="stat__value">${subs.length}</div>
+          <div class="stat__hint">всего за всё время</div>
         </div>
       </div>
 
       <div class="grid grid--4" style="margin-bottom: var(--space-6)">
         <div class="stat">
-          <div class="stat__label">Группы</div>
-          <div class="stat__value">${groups.length}</div>
-        </div>
-        <div class="stat">
-          <div class="stat__label">Задания</div>
-          <div class="stat__value">${tasks.length}</div>
-        </div>
-        <div class="stat">
           <div class="stat__label">На проверку</div>
           <div class="stat__value">${pending.length}</div>
+          <div class="stat__hint">ожидают вашего решения</div>
         </div>
         <div class="stat">
-          <div class="stat__label">Проверено</div>
-          <div class="stat__value">${checked}</div>
+          <div class="stat__label">Проверено AI</div>
+          <div class="stat__value">${aiChecked.length}</div>
+          <div class="stat__hint">ждут итоговой оценки</div>
         </div>
-      </div>
-
-      <div class="grid grid--2">
-        <section>
-          <div class="row row--between" style="margin-bottom: var(--space-3)">
-            <h3>Последние задания</h3>
-            <a class="btn btn--ghost btn--sm" href="#/tasks">Все →</a>
-          </div>
-          ${tasks.length === 0 ? emptyBlock('Пока нет заданий') : tasks.slice(0, 5).map(taskCard).join('')}
-        </section>
-
-        <section>
-          <div class="row row--between" style="margin-bottom: var(--space-3)">
-            <h3>Работы на проверку</h3>
-          </div>
-          ${pending.length === 0 ? emptyBlock('Нет работ на проверку') : pending.slice(0, 5).map(subCard).join('')}
-        </section>
+        <div class="stat">
+          <div class="stat__label">Оценено вами</div>
+          <div class="stat__value">${reviewed.length}</div>
+          <div class="stat__hint">с итоговой оценкой</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">Средний балл</div>
+          <div class="stat__value">${avg != null ? `<span class="score score--${scoreClass(avg)}"><span class="score__value">${avg}</span></span>` : '—'}</div>
+          <div class="stat__hint">по итоговым оценкам</div>
+        </div>
       </div>
     `;
 
@@ -78,43 +89,8 @@ export async function renderTeacherDashboard() {
   }
 }
 
-function taskCard(t) {
-  return html`
-    <a class="card card--interactive" href="#/tasks/${t.id}" style="display:block; margin-bottom: var(--space-3)">
-      <div class="card__header">
-        <div class="card__title">${escape(t.title)}</div>
-        <span class="badge">${t.deadline ? relativeDeadline(t.deadline) : 'без дедлайна'}</span>
-      </div>
-      <div class="card__meta">Дедлайн: ${formatDate(t.deadline)}</div>
-    </a>
-  `;
-}
-
-function subCard(s) {
-  const badge = statusBadge(s.status);
-  return html`
-    <a class="card card--interactive" href="#/submissions/${s.id}" style="display:block; margin-bottom: var(--space-3)">
-      <div class="card__header">
-        <div class="card__title">Работа #${String(s.id).slice(0, 8)}</div>
-        ${badge}
-      </div>
-      <div class="card__meta">Студент ID: ${escape(String(s.student_id || '—').slice(0, 8))}</div>
-    </a>
-  `;
-}
-
-function statusBadge(status) {
-  const map = {
-    draft: ['draft', 'Черновик'],
-    submitted: ['submitted', 'Сдано'],
-    checking: ['checking', 'AI проверяет'],
-    checked: ['checked', 'AI проверено'],
-    failed: ['failed', 'Ошибка AI'],
-  };
-  const [cls, label] = map[status] || ['draft', status];
-  return `<span class="badge badge--${cls}">${label}</span>`;
-}
-
-function emptyBlock(text) {
-  return `<div class="card" style="text-align:center; color:var(--text-muted); padding: var(--space-8)">${text}</div>`;
+function scoreClass(v) {
+  if (v >= 75) return 'good';
+  if (v >= 50) return 'warn';
+  return 'bad';
 }

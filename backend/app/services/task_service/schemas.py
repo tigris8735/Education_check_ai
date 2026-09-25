@@ -49,7 +49,11 @@ class TaskOut(BaseModel):
     deadline: datetime
     created_at: datetime
     is_expired: bool = False
+    # ← НОВОЕ: для карточек списка
+    group_name: str = ""
+    members_count: int = 0
+    submissions_count: int = 0
 
 
 class TaskDetail(TaskOut):
-    group_name: str = ""
+    pass

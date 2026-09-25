@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.services.group_service import crud as group_crud
+from app.services.submission_service import crud as submission_crud
 from app.services.task_service import crud as task_crud
 from app.services.task_service import service as task_service
 from app.services.task_service.models import Task
@@ -16,6 +17,9 @@ router = APIRouter()
 
 
 async def _to_task_out(db: AsyncSession, t: Task) -> TaskOut:
+    group = await group_crud.get_by_id(db, t.group_id)
+    members = await group_crud.members_count(db, t.group_id) if group else 0
+    subs = await submission_crud.list_by_task(db, t.id)
     return TaskOut(
         id=t.id,
         group_id=t.group_id,
@@ -25,6 +29,9 @@ async def _to_task_out(db: AsyncSession, t: Task) -> TaskOut:
         deadline=t.deadline,
         created_at=t.created_at,
         is_expired=task_crud.is_expired(t),
+        group_name=group.name if group else "",
+        members_count=members,
+        submissions_count=len(subs),
     )
 
 
@@ -55,18 +62,8 @@ async def get_task(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     task = await task_service.get_task(db, task_id, current_user)
-    group = await group_crud.get_by_id(db, task.group_id)
-    return TaskDetail(
-        id=task.id,
-        group_id=task.group_id,
-        teacher_id=task.teacher_id,
-        title=task.title,
-        description=task.description,
-        deadline=task.deadline,
-        created_at=task.created_at,
-        is_expired=task_crud.is_expired(task),
-        group_name=group.name if group else "",
-    )
+    out = await _to_task_out(db, task)
+    return TaskDetail(**out.model_dump())
 
 
 @router.patch("/{task_id}", response_model=TaskOut)

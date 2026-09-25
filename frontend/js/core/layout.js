@@ -1,7 +1,7 @@
 import { store } from './store.js';
 import { html, initials, escape } from '../ui/render.js';
 import { logout } from './auth.js';
-import { toggleTheme, getStoredTheme } from './theme.js';  // ← добавить импорт
+import { toggleTheme, getStoredTheme } from './theme.js';
 
 export function renderLayout(content) {
   const user = store.state.user || {};
@@ -46,31 +46,26 @@ export function renderLayout(content) {
 
   document.getElementById('theme-toggle').addEventListener('click', () => {
     const newTheme = toggleTheme();
-    const btn = document.getElementById('theme-toggle');
-    btn.textContent = newTheme === 'dark' ? '☀️' : '🌙';
+    document.getElementById('theme-toggle').textContent = newTheme === 'dark' ? '☀️' : '🌙';
   });
 
-  // toggle sidebar on mobile
   const sidebar = document.getElementById('sidebar');
   const toggle = document.getElementById('sidebar-toggle');
   if (window.innerWidth <= 900) toggle.style.display = 'inline-flex';
   toggle?.addEventListener('click', () => sidebar.classList.toggle('is-open'));
 
-  // Активный пункт по хэшу
   const path = location.hash || '#/';
   document.querySelectorAll('.sidebar__link').forEach(a => {
     if (a.getAttribute('href') === path) a.classList.add('is-active');
   });
 }
 
-// teacherNav() и studentNav() остаются без изменений
 function teacherNav() {
   return html`
     <div class="sidebar__section">Преподаватель</div>
     <a class="sidebar__link" href="#/">Дашборд</a>
     <a class="sidebar__link" href="#/groups">Группы</a>
     <a class="sidebar__link" href="#/tasks">Задания</a>
-    <div class="sidebar__section">Работы</div>
     <a class="sidebar__link" href="#/submissions">На проверку</a>
   `;
 }

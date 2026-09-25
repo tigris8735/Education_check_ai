@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator, model_validator
 
 from app.services.user_service.schemas import UserOut
 from app.shared.validators import validate_group_name
@@ -8,6 +8,7 @@ from app.shared.validators import validate_group_name
 
 class GroupCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=20)
+    description: str | None = Field(None, max_length=1000)   # ← НОВОЕ
 
     @field_validator("name")
     @classmethod
@@ -27,6 +28,7 @@ class GroupOut(BaseModel):
 
     id: int
     name: str
+    description: str | None = None      # ← НОВОЕ
     teacher_id: int | None
     created_by_id: int
     created_at: datetime
@@ -38,8 +40,6 @@ class GroupDetail(GroupOut):
 
 
 class AddMemberIn(BaseModel):
-    """Добавить студента: по user_id ИЛИ по email.
-    Если email не найден и заполнены имя/фамилия/пароль — аккаунт создастся."""
     user_id: int | None = None
     email: EmailStr | None = None
     first_name: str | None = Field(None, min_length=1, max_length=100)

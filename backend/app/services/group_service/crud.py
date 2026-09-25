@@ -15,9 +15,19 @@ async def get_by_name(db: AsyncSession, name: str) -> Group | None:
 
 
 async def create(
-    db: AsyncSession, *, name: str, teacher_id: int | None, created_by_id: int
+    db: AsyncSession,
+    *,
+    name: str,
+    teacher_id: int | None,
+    created_by_id: int,
+    description: str | None = None,
 ) -> Group:
-    group = Group(name=name, teacher_id=teacher_id, created_by_id=created_by_id)
+    group = Group(
+        name=name,
+        description=description,
+        teacher_id=teacher_id,
+        created_by_id=created_by_id,
+    )
     db.add(group)
     await db.commit()
     await db.refresh(group)

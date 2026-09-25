@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.shared.base_model import Base, TimestampMixin
@@ -13,11 +13,10 @@ class Group(Base, TimestampMixin):
     name: Mapped[str] = mapped_column(
         String(20), unique=True, index=True, nullable=False
     )
-    # Кто ведёт группу (может быть NULL, пока препод её не «забрал»)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)  # ← НОВОЕ
     teacher_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
-    # Кто создал (студент или препод) — на всякий случай для истории
     created_by_id: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )

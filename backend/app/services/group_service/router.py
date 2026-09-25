@@ -24,6 +24,7 @@ async def _to_out(db: AsyncSession, g: Group) -> GroupOut:
     return GroupOut(
         id=g.id,
         name=g.name,
+        description=g.description,
         teacher_id=g.teacher_id,
         created_by_id=g.created_by_id,
         created_at=g.created_at,
@@ -50,7 +51,6 @@ async def create_group(
     return await _to_out(db, group)
 
 
-# ВАЖНО: /search объявлен ДО /{group_id}, иначе маршрут съедается динамическим
 @router.get("/search", response_model=list[GroupOut])
 async def search_groups(
     name: str,

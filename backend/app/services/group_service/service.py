@@ -23,7 +23,11 @@ async def create_group(db: AsyncSession, data: GroupCreate, user: User) -> Group
 
     teacher_id = user.id if user.role == Role.TEACHER else None
     group = await crud.create(
-        db, name=data.name, teacher_id=teacher_id, created_by_id=user.id
+        db,
+        name=data.name,
+        description=data.description,
+        teacher_id=teacher_id,
+        created_by_id=user.id,
     )
     if user.role == Role.STUDENT:
         await crud.add_member(db, group.id, user.id)
@@ -50,6 +54,7 @@ async def get_group_detail(db: AsyncSession, group_id: int, user: User) -> Group
     return GroupDetail(
         id=group.id,
         name=group.name,
+        description=group.description,
         teacher_id=group.teacher_id,
         created_by_id=group.created_by_id,
         created_at=group.created_at,
@@ -89,7 +94,6 @@ async def add_member(
     elif payload.email:
         target = await user_crud.get_by_email(db, payload.email)
 
-    # Не нашли — создаём нового студента, если даны все поля
     if target is None:
         if not (payload.email and payload.first_name and payload.last_name and payload.password):
             raise NotFoundError(

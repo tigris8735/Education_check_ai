@@ -1,6 +1,7 @@
 import { route, setNotFound, startRouter, navigate } from './core/router.js';
 import { restoreSession } from './core/auth.js';
 import { store } from './core/store.js';
+import { initTheme } from './core/theme.js';
 
 import { renderLogin } from './pages/login.js';
 import { renderRegister } from './pages/register.js';
@@ -14,7 +15,6 @@ import { renderSubmissions } from './pages/submissions.js';
 import { renderSubmissionDetail } from './pages/submission-detail.js';
 import { renderLayout } from './core/layout.js';
 import { html } from './ui/render.js';
-import { initTheme } from './core/theme.js';
 
 /* ---------- Routes ---------- */
 route('/login', () => renderLogin());
@@ -47,9 +47,9 @@ route('/tasks/:id', ({ id }) => {
   return renderTaskDetail({ id });
 });
 
+// ТЕПЕРЬ и студент, и препод (у препода — очередь «На проверку»)
 route('/submissions', () => {
   if (!store.state.user) return navigate('/login');
-  if (store.state.user.role === 'teacher') return navigate('/tasks');
   return renderSubmissions();
 });
 
@@ -58,23 +58,11 @@ route('/submissions/:id', ({ id }) => {
   return renderSubmissionDetail({ id });
 });
 
-setNotFound(() => {
-  renderLayout(html`
-    <div class="empty">
-      <div class="empty__title">Страница не найдена</div>
-      <p>Проверьте адрес или вернитесь <a class="text-accent" href="#/">на главную</a>.</p>
-    </div>
-  `);
-});
-
 /* ---------- Bootstrap ---------- */
-window.addEventListener('educheck:logout', () => {
-  store.set({ user: null });
-  navigate('/login');
-});
-
-(async function bootstrap() {
+async function bootstrap() {
   initTheme();
   await restoreSession();
   startRouter();
-})();
+}
+
+bootstrap();

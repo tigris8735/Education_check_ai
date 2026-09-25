@@ -9,6 +9,7 @@ export async function renderSubmissionDetail({ id }) {
   try {
     const s = await api.submissions.get(id);
     const isTeacher = store.state.user?.role === 'teacher';
+    const canComment = isTeacher && ['checked', 'reviewed'].includes(s.status);
 
     const content = html`
       <div class="breadcrumbs">
@@ -19,8 +20,11 @@ export async function renderSubmissionDetail({ id }) {
 
       <div class="page-header">
         <div class="page-header__title">
-          <h1>Работа студента</h1>
-          <p class="page-header__subtitle">Сдана ${formatDateTime(s.submitted_at || s.created_at)}</p>
+          <h1>${escape(s.student_last_name || '')} ${escape(s.student_first_name || '')}</h1>
+          <p class="page-header__subtitle">
+            ${escape(s.task_title || 'Задание #' + s.task_id)} · ${escape(s.student_group_name || '')} ·
+            сдана ${formatDateTime(s.submitted_at || s.created_at)}
+          </p>
         </div>
         <div class="page-header__actions">
           <span class="badge badge--${statusClass(s.status)}">${statusLabel(s.status)}</span>
@@ -36,12 +40,10 @@ export async function renderSubmissionDetail({ id }) {
 
         <div class="ai-review__panel ai-review__panel--ai">
           <h4>AI-разбор ${s.ai_score != null
-            ? `<span class="score score--${scoreClass(s.ai_score)}">
-                 <span class="score__value">${s.ai_score}</span><span class="score__max">/100</span>
-               </span>` : ''}</h4>
+            ? `<span class="score"><span class="score__value">${s.ai_score}</span><span class="score__max">/100</span></span>`
+            : ''}</h4>
           ${s.ai_status === 'error'
-            ? `<p style="color:var(--danger)">❌ Ошибка AI: ${escape(s.ai_error || 'неизвестная')}</p>
-               <p class="text-muted">Проверьте настройки провайдера и повторите запуск.</p>`
+            ? `<p style="color:var(--danger)">❌ Ошибка AI: ${escape(s.ai_error || 'неизвестная')}</p>`
             : s.ai_feedback
               ? `<div class="md">${renderSafeMarkdown(s.ai_feedback)}</div>`
               : `<p class="text-muted">AI-проверка ещё не выполнена.</p>`}
@@ -55,9 +57,7 @@ export async function renderSubmissionDetail({ id }) {
             ${s.files.map(f => `
               <div class="row row--between">
                 <div>📄 ${escape(f.original_name)}
-                  <span class="text-muted" style="font-size:var(--fs-sm)">
-                    (${(f.size / 1024).toFixed(1)} KB)
-                  </span>
+                  <span class="text-muted" style="font-size:var(--fs-sm)">(${(f.size / 1024).toFixed(1)} KB)</span>
                 </div>
                 <button class="btn btn--secondary btn--sm" data-download="${f.id}">Скачать</button>
               </div>
@@ -67,26 +67,25 @@ export async function renderSubmissionDetail({ id }) {
 
       ${(s.comments?.length ?? 0) > 0 ? `
         <div class="card" style="margin-bottom: var(--space-6)">
-          <h4 style="margin-bottom: var(--space-3)">Комментарии (${s.comments.length})</h4>
+          <h4 style="margin-bottom: var(--space-3)">Комментарии преподавателя (${s.comments.length})</h4>
           <div class="stack stack--sm">
             ${s.comments.map(c => `
               <div style="padding:8px;border-bottom:1px solid var(--border)">
-                <div class="text-muted" style="font-size:var(--fs-sm)">
-                  Пользователь #${c.author_id} · ${formatDateTime(c.created_at)}
-                </div>
+                <div class="text-muted" style="font-size:var(--fs-sm)">${formatDateTime(c.created_at)}</div>
                 <div>${escape(c.text)}</div>
               </div>
             `).join('')}
           </div>
         </div>` : ''}
 
-      <div class="card" style="margin-bottom: var(--space-6)">
-        <h4 style="margin-bottom: var(--space-3)">Добавить комментарий</h4>
-        <form id="comment-form" class="stack">
-          <textarea class="textarea" name="text" rows="3" placeholder="Ваш комментарий" required></textarea>
-          <div><button class="btn btn--secondary btn--sm" type="submit">Отправить</button></div>
-        </form>
-      </div>
+      ${canComment ? `
+        <div class="card" style="margin-bottom: var(--space-6)">
+          <h4 style="margin-bottom: var(--space-3)">Дополнить комментарий к оценке</h4>
+          <form id="comment-form" class="stack">
+            <textarea class="textarea" name="text" rows="3" placeholder="Ваши замечания студенту" required></textarea>
+            <div><button class="btn btn--secondary btn--sm" type="submit">Отправить</button></div>
+          </form>
+        </div>` : ''}
 
       ${isTeacher ? renderTeacherReview(s) : ''}
     `;
@@ -119,14 +118,11 @@ export async function renderSubmissionDetail({ id }) {
       btn.textContent = '⏳ Проверка выполняется...';
       try {
         const check = await api.submissions.triggerAI(id, { force: true });
-
-        // Провайдер упал аккуратно: показываем причину без 500
         if (check?.status === 'error') {
           toast(`Ошибка AI: ${check.error || 'см. панель проверки'}`, 'error');
           renderSubmissionDetail({ id });
           return;
         }
-
         toast('AI-проверка запущена...', 'info');
         let attempts = 0;
         const poll = setInterval(async () => {

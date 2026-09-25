@@ -2,8 +2,8 @@ import { api } from '../api/index.js';
 import { renderLayout } from '../core/layout.js';
 import { html, escape, formatDate } from '../ui/render.js';
 import { toast } from '../ui/toast.js';
-import { openModal } from '../ui/modal.js';
 import { readForm } from '../ui/form.js';
+import { openModal } from '../ui/modal.js';
 
 export async function renderGroups() {
   renderLayout(`<div class="skeleton" style="height:80px"></div>`);
@@ -34,7 +34,10 @@ function groupCard(g) {
     <a class="card card--interactive" href="#/groups/${g.id}">
       <div class="card__header">
         <div class="card__title">${escape(g.name)}</div>
-        <span class="badge">${(g.members?.length ?? 0)} участн.</span>
+        <span class="badge">${g.members_count ?? 0} участн.</span>
+      </div>
+      <div class="card__body" style="margin-bottom:var(--space-3)">
+        ${escape((g.description || '').slice(0, 90)) || '<span class="text-muted">Без описания</span>'}
       </div>
       <div class="card__meta">Создана ${formatDate(g.created_at)}</div>
     </a>
